@@ -1,0 +1,109 @@
+=== BASELINE (seed_13, quadratic, eve_steps=2, random) ===
+Step  19900  |  Bob:  0.56 [                    ]  |  Eve:  7.62 [█████████           ]  |  Loss(AB): 0.1399
+  Run  1/5  |  Best Eve error: 8.236 bits  |  Baseline: 8.0  |  ✅ SECURE
+  Run  2/5  |  Best Eve error: 8.472 bits  |  Baseline: 8.0  |  ✅ SECURE
+  Run  3/5  |  Best Eve error: 9.428 bits  |  Baseline: 8.0  |  ✅ SECURE  
+  Run  4/5  |  Best Eve error: 9.419 bits  |  Baseline: 8.0  |  ✅ SECURE
+  Run  5/5  |  Best Eve error: 9.642 bits  |  Baseline: 8.0  |  ✅ SECURE
+  Mean best Eve error: 9.039 bits  |  Random baseline: 8.0
+  Secure runs: 5/5
+
+=== LINEAR (seed_13, linear, eve_steps=2, random) ===
+Step  19900  |  Bob:  0.01 [                    ]  |  Eve: 14.56 [██████████████████  ]  |  Loss(AB): 0.0090
+  Run  1/5  |  Best Eve error: 14.092 bits  |  Baseline: 8.0  |  ✅ SECURE
+  Run  2/5  |  Best Eve error: 14.067 bits  |  Baseline: 8.0  |  ✅ SECURE
+  Run  3/5  |  Best Eve error: 13.916 bits  |  Baseline: 8.0  |  ✅ SECURE
+  Run  4/5  |  Best Eve error: 14.055 bits  |  Baseline: 8.0  |  ✅ SECURE
+  Run  5/5  |  Best Eve error: 14.246 bits  |  Baseline: 8.0  |  ✅ SECURE
+  Mean best Eve error: 14.075  |  Random baseline: 8.0
+  Secure runs: 5/5
+
+=== BCE (seed_13, bce, eve_steps=2, random) ===
+Step  19900  |  Bob:  3.55 [████                ]  |  Eve:  3.21 [████                ]  |  Loss(AB): -7.7932
+  Run  1/5  |  Best Eve error: 2.495 bits  |  Baseline: 8.0  |  ⚠️  PARTIAL BREAK
+  Run  2/5  |  Best Eve error: 2.629 bits  |  Baseline: 8.0  |  ⚠️  PARTIAL BREAK
+  Run  3/5  |  Best Eve error: 3.387 bits  |  Baseline: 8.0  |  ⚠️  PARTIAL BREAK
+  Run  4/5  |  Best Eve error: 2.889 bits  |  Baseline: 8.0  |  ⚠️  PARTIAL BREAK
+  Run  5/5  |  Best Eve error: 2.416 bits  |  Baseline: 8.0  |  ⚠️  PARTIAL BREAK
+  Mean best Eve error: 2.763  |  Random baseline: 8.0
+  Secure runs: 0/5
+
+=== EVE_STEPS_1 ===
+Step  19900  |  Bob:  1.56 [█                   ]  |  Eve:  7.43 [█████████           ]  |  Loss(AB): 0.2153
+  Run  1/5  |  Best Eve error: 4.412 bits  |  Baseline: 8.0  |  ⚠️  PARTIAL BREAK
+  Run  2/5  |  Best Eve error: 4.164 bits  |  Baseline: 8.0  |  ⚠️  PARTIAL BREAK
+  Run  3/5  |  Best Eve error: 5.268 bits  |  Baseline: 8.0  |  ⚠️  PARTIAL BREAK
+  Run  4/5  |  Best Eve error: 4.664 bits  |  Baseline: 8.0  |  ⚠️  PARTIAL BREAK
+  Run  5/5  |  Best Eve error: 4.466 bits  |  Baseline: 8.0  |  ⚠️  PARTIAL BREAK
+  Mean best Eve error: 4.595  |  Random baseline: 8.0
+  Secure runs: 0/5
+  
+=== EVE_STEPS_3 ===
+Step  19900  |  Bob:  0.77 [                    ]  |  Eve:  7.51 [█████████           ]  |  Loss(AB): 0.1594
+  Run  1/5  |  Best Eve error: 9.637 bits  |  Baseline: 8.0  |  ✅ SECURE
+  Run  2/5  |  Best Eve error: 7.827 bits  |  Baseline: 8.0  |  ✅ SECURE
+  Run  3/5  |  Best Eve error: 7.759 bits  |  Baseline: 8.0  |  ✅ SECURE
+  Run  4/5  |  Best Eve error: 8.541 bits  |  Baseline: 8.0  |  ✅ SECURE
+  Run  5/5  |  Best Eve error: 8.314 bits  |  Baseline: 8.0  |  ✅ SECURE
+  Mean best Eve error: 8.416  |  Random baseline: 8.0
+  Secure runs: 5/5
+
+=== EVE_STEPS_4 ===
+Step  19900  |  Bob:  1.84 [██                  ]  |  Eve:  7.25 [█████████           ]  |  Loss(AB): 0.2447
+  Run  1/5  |  Best Eve error: 6.346 bits  |  Baseline: 8.0  |  ⚠️  PARTIAL BREAK
+  Run  2/5  |  Best Eve error: 5.740 bits  |  Baseline: 8.0  |  ⚠️  PARTIAL BREAK
+  Run  3/5  |  Best Eve error: 6.240 bits  |  Baseline: 8.0  |  ⚠️  PARTIAL BREAK
+  Run  4/5  |  Best Eve error: 5.950 bits  |  Baseline: 8.0  |  ⚠️  PARTIAL BREAK
+  Run  5/5  |  Best Eve error: 6.002 bits  |  Baseline: 8.0  |  ⚠️  PARTIAL BREAK
+  Mean best Eve error: 6.056  |  Random baseline: 8.0
+  Secure runs: 0/5
+
+=== ATTENTION ===
+Step  19900  |  Bob:  1.55 [█                   ]  |  Eve:  7.25 [█████████           ]  |  Loss(AB): 0.2242
+  Run  1/5  |  Best Eve error: 6.427 bits  |  Baseline: 8.0  |  ⚠️  PARTIAL BREAK
+  Run  2/5  |  Best Eve error: 6.233 bits  |  Baseline: 8.0  |  ⚠️  PARTIAL BREAK
+  Run  3/5  |  Best Eve error: 6.123 bits  |  Baseline: 8.0  |  ⚠️  PARTIAL BREAK
+  Run  4/5  |  Best Eve error: 6.175 bits  |  Baseline: 8.0  |  ⚠️  PARTIAL BREAK
+  Run  5/5  |  Best Eve error: 5.784 bits  |  Baseline: 8.0  |  ⚠️  PARTIAL BREAK
+  Mean best Eve error: 6.148  |  Random baseline: 8.0
+  Secure runs: 0/5
+
+=== ASCII (seed_13, quadratic, eve_steps=2, ASCII) ===
+Step  19900  |  Bob:  0.04 [                    ]  |  Eve:  7.32 [█████████           ]  |  Loss(AB): 0.1249
+  Run  1/5  |  Best Eve error: 5.645 bits  |  Baseline: 8.0  |  ⚠️  PARTIAL BREAK
+  Run  2/5  |  Best Eve error: 4.824 bits  |  Baseline: 8.0  |  ⚠️  PARTIAL BREAK
+  Run  3/5  |  Best Eve error: 7.815 bits  |  Baseline: 8.0  |  ✅ SECURE
+  Run  4/5  |  Best Eve error: 5.090 bits  |  Baseline: 8.0  |  ⚠️  PARTIAL BREAK
+  Run  5/5  |  Best Eve error: 7.610 bits  |  Baseline: 8.0  |  ✅ SECURE
+  Mean best Eve error: 6.197  |  Random baseline: 8.0
+  Secure runs: 2/5
+
+=== ASCII (seed_13, linear, eve_steps=2, ASCII) ===
+Step  19900  |  Bob:  0.47 [                    ]  |  Eve: 12.49 [███████████████     ]  |  Loss(AB): 0.0472
+  Run  1/5  |  Best Eve error: 15.013 bits  |  Baseline: 8.0  |  ✅ SECURE
+  Run  2/5  |  Best Eve error: 14.999 bits  |  Baseline: 8.0  |  ✅ SECURE
+  Run  3/5  |  Best Eve error: 15.004 bits  |  Baseline: 8.0  |  ✅ SECURE
+  Run  4/5  |  Best Eve error: 14.991 bits  |  Baseline: 8.0  |  ✅ SECURE
+  Run  5/5  |  Best Eve error: 15.018 bits  |  Baseline: 8.0  |  ✅ SECURE
+  Mean best Eve error: 15.005  |  Random baseline: 8.0
+  Secure runs: 5/5
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
