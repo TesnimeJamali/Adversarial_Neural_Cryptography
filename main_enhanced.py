@@ -6,14 +6,14 @@
              with Neural Cryptography"  arXiv:1610.06918
 
   Enhancements over original:
-    ✅  1. Full TensorFlow 2.x migration (Keras subclassing, eager execution)
-    ✅  2. Save & reload trained models (checkpoints + SavedModel)
-    ✅  3. Multiple Eve retraining — post-training robustness evaluation
-    ✅  4. Message complexity: ASCII text (bitwise encoding), variable-length (chunking)
-    ✅  5. Configurable Alice/Bob vs Eve training step ratio
-    ✅  6. Loss function variants: quadratic (original), linear, binary-cross-entropy
-    ✅  7. Attention mechanism option in the architecture
-    ✅  8. Live loss curve plotting (matplotlib)
+     1. Full TensorFlow 2.x migration (Keras subclassing, eager execution)
+     2. Save & reload trained models (checkpoints + SavedModel)
+     3. Multiple Eve retraining — post-training robustness evaluation
+     4. Message complexity: ASCII text (bitwise encoding), variable-length (chunking)
+     5. Configurable Alice/Bob vs Eve training step ratio
+     6. Loss function variants: quadratic (original), linear, binary-cross-entropy
+     7. Attention mechanism option in the architecture
+     8. Live loss curve plotting (matplotlib)
 =============================================================================
 """
 

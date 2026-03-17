@@ -1,0 +1,1831 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Adversarial Neural Cryptography · INSAT Team</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #080c10;
+  --bg2: #0d1117;
+  --surface: #111820;
+  --border: #1e2d3d;
+  --accent: #00d4ff;
+  --accent2: #ff4560;
+  --accent3: #00ff88;
+  --accent4: #ffb800;
+  --text: #e8f0f8;
+  --muted: #5a7a9a;
+  --mono: 'Space Mono', monospace;
+  --sans: 'Syne', sans-serif;
+}
+
+* { margin:0; padding:0; box-sizing:border-box; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--sans);
+  overflow: hidden;
+  height: 100vh;
+  width: 100vw;
+}
+
+/* ── CANVAS BACKGROUND ── */
+#bgCanvas {
+  position: fixed;
+  top:0; left:0;
+  width:100%; height:100%;
+  z-index: 0;
+  opacity: 0.35;
+}
+
+/* ── NAV ── */
+#nav {
+  position: fixed;
+  bottom: 28px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: rgba(8,12,16,0.85);
+  border: 1px solid var(--border);
+  border-radius: 50px;
+  padding: 10px 20px;
+  backdrop-filter: blur(12px);
+}
+
+
+
+#nav-prev, #nav-next {
+  background: none;
+  border: 1px solid var(--border);
+  color: var(--text);
+  width: 30px; height: 30px;
+  border-radius: 50%;
+  cursor: pointer;
+  font-size: 13px;
+  display: flex; align-items: center; justify-content: center;
+  transition: all 0.2s;
+}
+#nav-prev:hover, #nav-next:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+#slide-counter {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--muted);
+  min-width: 42px;
+  text-align: center;
+}
+
+/* ── SLIDES ── */
+.slides-wrapper {
+  position: relative;
+  z-index: 10;
+  width: 100vw;
+  height: 100vh;
+}
+
+.slide {
+  position: absolute;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 80px 90px;
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(20px);
+  transition: opacity 0.5s cubic-bezier(0.4,0,0.2,1), transform 0.5s cubic-bezier(0.4,0,0.2,1);
+}
+.slide.active {
+  opacity: 1;
+  pointer-events: all;
+  transform: translateY(0);
+}
+
+/* ── TYPOGRAPHY ── */
+.slide-label {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--accent);
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  margin-bottom: 18px;
+  opacity: 0.8;
+}
+
+h1 {
+  font-family: var(--sans);
+  font-size: clamp(2.2rem, 5vw, 4rem);
+  font-weight: 800;
+  line-height: 1.1;
+  text-align: center;
+  margin-bottom: 16px;
+}
+h2 {
+  font-family: var(--sans);
+  font-size: clamp(1.4rem, 3vw, 2.2rem);
+  font-weight: 700;
+  text-align: center;
+  margin-bottom: 22px;
+  color: var(--text);
+}
+h3 {
+  font-family: var(--sans);
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--accent);
+  margin-bottom: 8px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.sub {
+  font-family: var(--mono);
+  font-size: 0.85rem;
+  color: var(--muted);
+  text-align: center;
+  margin-bottom: 10px;
+  line-height: 1.6;
+}
+
+/* ── ACCENT COLORS ── */
+.c-blue { color: var(--accent); }
+.c-red  { color: var(--accent2); }
+.c-green { color: var(--accent3); }
+.c-yellow { color: var(--accent4); }
+
+/* ── GRADIENT TEXT ── */
+.grad {
+  background: linear-gradient(135deg, var(--accent), var(--accent3));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+.grad2 {
+  background: linear-gradient(135deg, var(--accent4), var(--accent2));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* ── CARDS ── */
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 22px 24px;
+  position: relative;
+  overflow: hidden;
+}
+.card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, var(--accent), transparent);
+}
+.card.red::before { background: linear-gradient(90deg, var(--accent2), transparent); }
+.card.green::before { background: linear-gradient(90deg, var(--accent3), transparent); }
+.card.yellow::before { background: linear-gradient(90deg, var(--accent4), transparent); }
+
+/* ── GRIDS ── */
+.grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; width: 100%; max-width: 1100px; }
+.grid-2 { display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; width: 100%; max-width: 1100px; }
+.grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; width: 100%; max-width: 1100px; }
+
+/* ── CODE ── */
+.code {
+  font-family: var(--mono);
+  font-size: 0.78rem;
+  background: #060a0e;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 14px 16px;
+  color: var(--accent3);
+  line-height: 1.7;
+  overflow: hidden;
+}
+
+/* ── TABLE ── */
+.tbl {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: var(--mono);
+  font-size: 0.78rem;
+}
+.tbl th {
+  background: rgba(0,212,255,0.08);
+  color: var(--accent);
+  padding: 8px 14px;
+  text-align: left;
+  border-bottom: 1px solid var(--border);
+  font-size: 0.72rem;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+.tbl td {
+  padding: 8px 14px;
+  border-bottom: 1px solid rgba(30,45,61,0.5);
+  color: var(--text);
+}
+.tbl tr:hover td { background: rgba(0,212,255,0.03); }
+
+/* ── BADGE ── */
+.badge {
+  display: inline-block;
+  font-family: var(--mono);
+  font-size: 0.7rem;
+  padding: 3px 10px;
+  border-radius: 20px;
+  border: 1px solid currentColor;
+}
+
+/* ── PROGRESS BAR ── */
+.bar-wrap { display: flex; align-items: center; gap: 10px; margin: 6px 0; }
+.bar-label { font-family: var(--mono); font-size: 0.72rem; color: var(--muted); min-width: 80px; }
+.bar-track { flex: 1; height: 6px; background: var(--border); border-radius: 3px; overflow: hidden; }
+.bar-fill { height: 100%; border-radius: 3px; transition: width 1s ease; }
+.bar-val { font-family: var(--mono); font-size: 0.72rem; color: var(--muted); min-width: 50px; text-align: right; }
+
+/* ── FLOW DIAGRAM ── */
+.flow {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  justify-content: center;
+  width: 100%;
+  margin: 20px 0;
+}
+.flow-node {
+  background: var(--surface);
+  border: 1.5px solid var(--border);
+  border-radius: 10px;
+  padding: 16px 22px;
+  text-align: center;
+  min-width: 130px;
+}
+.flow-node.alice { border-color: var(--accent); }
+.flow-node.bob   { border-color: var(--accent3); }
+.flow-node.eve   { border-color: var(--accent2); }
+.flow-arrow { font-size: 1.4rem; color: var(--muted); padding: 0 6px; }
+.flow-label { font-family: var(--mono); font-size: 0.68rem; color: var(--muted); margin-top: 4px; }
+.flow-name  { font-family: var(--sans); font-weight: 700; font-size: 0.95rem; }
+
+.eve-branch {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-top: -10px;
+}
+
+/* ── LAYER DIAGRAM ── */
+.layer-box {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px 14px;
+  margin: 4px 0;
+  font-family: var(--mono);
+  font-size: 0.76rem;
+}
+.layer-name { color: var(--accent); min-width: 160px; font-weight: 700; }
+.layer-desc { color: var(--muted); flex: 1; }
+.layer-act  { color: var(--accent4); font-size: 0.7rem; }
+.layer-arrow { text-align: center; color: var(--border); font-size: 0.9rem; margin: 1px 0; }
+
+/* ── SLIDE 1: TITLE ── */
+.title-tag {
+  font-family: var(--mono);
+  font-size: 0.72rem;
+  color: var(--muted);
+  border: 1px solid var(--border);
+  padding: 4px 12px;
+  border-radius: 20px;
+  margin-bottom: 28px;
+}
+
+.title-authors {
+  margin-top: 32px;
+  display: flex;
+  gap: 25px;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+.author-pill {
+  font-family: var(--mono);
+  font-size: 0.75rem;
+  color: var(--muted);
+  border: 1px solid var(--border);
+  padding: 6px 16px;
+  border-radius: 20px;
+}
+.author-pill span { color: var(--text); }
+
+/* ── ANIMATED CIPHER ── */
+#cipher-demo {
+  font-family: var(--mono);
+  font-size: 0.75rem;
+  color: var(--accent);
+  letter-spacing: 2px;
+  margin-top: 20px;
+  height: 20px;
+  overflow: hidden;
+}
+
+/* ── PHASE TIMELINE ── */
+.timeline {
+  display: flex;
+  width: 100%;
+  max-width: 900px;
+  gap: 0;
+  margin: 16px 0;
+}
+.phase {
+  flex: 1;
+  border: 1px solid var(--border);
+  border-right: none;
+  padding: 12px 14px;
+  position: relative;
+}
+.phase:last-child { border-right: 1px solid var(--border); border-radius: 0 8px 8px 0; }
+.phase:first-child { border-radius: 8px 0 0 8px; }
+.phase-num { font-family: var(--mono); font-size: 0.65rem; color: var(--accent); margin-bottom: 4px; }
+.phase-title { font-family: var(--sans); font-weight: 700; font-size: 0.82rem; margin-bottom: 4px; }
+.phase-desc { font-family: var(--mono); font-size: 0.65rem; color: var(--muted); line-height: 1.5; }
+
+/* ── QUOTE BLOCK ── */
+.quote {
+  border-left: 3px solid var(--accent);
+  padding: 16px 24px;
+  background: rgba(0,212,255,0.04);
+  border-radius: 0 8px 8px 0;
+  font-family: var(--mono);
+  font-size: 0.85rem;
+  color: var(--text);
+  line-height: 1.7;
+  max-width: 800px;
+  text-align: left;
+}
+
+/* ── ENHANCEMENTS SLIDE ── */
+.enh-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  padding: 12px 16px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  margin: 6px 0;
+}
+.enh-icon {
+  font-size: 1.2rem;
+  min-width: 28px;
+  margin-top: 2px;
+}
+.enh-body h4 {
+  font-family: var(--sans);
+  font-weight: 700;
+  font-size: 0.88rem;
+  color: var(--accent3);
+  margin-bottom: 3px;
+}
+.enh-body p {
+  font-family: var(--mono);
+  font-size: 0.72rem;
+  color: var(--muted);
+  line-height: 1.5;
+}
+.enh-tag {
+  margin-left: auto;
+  font-family: var(--mono);
+  font-size: 0.65rem;
+  padding: 2px 8px;
+  border-radius: 10px;
+  border: 1px solid var(--accent3);
+  color: var(--accent3);
+  white-space: nowrap;
+  align-self: flex-start;
+  margin-top: 2px;
+}
+.enh-tag.new { border-color: var(--accent4); color: var(--accent4); }
+.enh-tag.extended { border-color: var(--accent); color: var(--accent); }
+
+/* ── SECURITY METER ── */
+.sec-meter {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 100%;
+  max-width: 700px;
+}
+.sec-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.sec-name { font-family: var(--mono); font-size: 0.75rem; min-width: 160px; color: var(--text); }
+.sec-track { flex: 1; height: 8px; background: var(--border); border-radius: 4px; overflow: hidden; }
+.sec-fill { height: 100%; border-radius: 4px; }
+.sec-status { font-family: var(--mono); font-size: 0.7rem; min-width: 120px; text-align: right; }
+
+/* ── LOSS CHART ── */
+#lossChart { width: 100%; max-width: 700px; height: 180px; }
+
+/* ── SCROLLABLE CONTENT ── */
+.scrollable {
+  overflow-y: auto;
+  max-height: calc(100vh - 200px);
+  width: 100%;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
+}
+
+/* ── RESPONSIVE ── */
+@media (max-width: 900px) {
+  .grid-3, .grid-4 { grid-template-columns: 1fr 1fr; }
+  .grid-2 { grid-template-columns: 1fr; }
+  .slide { padding: 40px 30px 90px; }
+  h1 { font-size: 1.8rem; }
+}
+
+/* ── ANIMATIONS ── */
+@keyframes pulse-border {
+  0%, 100% { border-color: var(--border); }
+  50% { border-color: var(--accent); }
+}
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-6px); }
+}
+@keyframes blink { 0%,100% { opacity: 1; } 50% { opacity: 0; } }
+.blink { animation: blink 1s step-end infinite; }
+
+.slide.active .card { animation: fadeUp 0.4s ease both; }
+.slide.active .card:nth-child(1) { animation-delay: 0.1s; }
+.slide.active .card:nth-child(2) { animation-delay: 0.2s; }
+.slide.active .card:nth-child(3) { animation-delay: 0.3s; }
+.slide.active .card:nth-child(4) { animation-delay: 0.4s; }
+
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(16px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* progress top bar */
+#progress-bar {
+  position: fixed;
+  top: 0; left: 0;
+  height: 2px;
+  background: linear-gradient(90deg, var(--accent), var(--accent3));
+  transition: width 0.4s ease;
+  z-index: 200;
+}
+
+/* ── PLOT OVERLAY ── */
+#plot-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  z-index: 500;
+  align-items: center;
+  justify-content: center;
+}
+#plot-overlay.open { display: flex; }
+
+#plot-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(8,12,16,0.82);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  cursor: pointer;
+}
+
+#plot-modal {
+  position: relative;
+  z-index: 510;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 28px 32px 24px;
+  max-width: 820px;
+  width: 90vw;
+  box-shadow: 0 0 60px rgba(0,212,255,0.08);
+  animation: modalIn 0.35s cubic-bezier(0.34,1.56,0.64,1) both;
+}
+@keyframes modalIn {
+  from { opacity:0; transform: scale(0.88) translateY(20px); }
+  to   { opacity:1; transform: scale(1)    translateY(0); }
+}
+
+#plot-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+#plot-modal-title {
+  font-family: var(--mono);
+  font-size: 0.75rem;
+  color: var(--accent);
+  letter-spacing: 2px;
+  text-transform: uppercase;
+}
+#plot-close {
+  background: none;
+  border: 1px solid var(--border);
+  color: var(--muted);
+  width: 28px; height: 28px;
+  border-radius: 50%;
+  cursor: pointer;
+  font-size: 14px;
+  display: flex; align-items: center; justify-content: center;
+  transition: all 0.2s;
+}
+#plot-close:hover { border-color: var(--accent2); color: var(--accent2); }
+
+#plot-img-wrap {
+  position: relative;
+  text-align: center;
+  min-height: 300px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+#plot-img {
+  max-width: 100%;
+  max-height: 58vh;
+  border-radius: 8px;
+  display: block;
+}
+#plot-img-placeholder {
+  font-family: var(--mono);
+  font-size: 0.75rem;
+  color: var(--muted);
+  text-align: center;
+  padding: 60px 20px;
+  border: 1px dashed var(--border);
+  border-radius: 8px;
+  width: 100%;
+}
+
+#plot-nav {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  margin-top: 16px;
+}
+.plot-nav-btn {
+  background: none;
+  border: 1px solid var(--border);
+  color: var(--text);
+  width: 32px; height: 32px;
+  border-radius: 50%;
+  cursor: pointer;
+  font-size: 14px;
+  display: flex; align-items: center; justify-content: center;
+  transition: all 0.2s;
+}
+.plot-nav-btn:hover { border-color: var(--accent); color: var(--accent); }
+.plot-nav-btn:disabled { opacity: 0.2; cursor: default; }
+#plot-counter {
+  font-family: var(--mono);
+  font-size: 0.72rem;
+  color: var(--muted);
+  min-width: 60px;
+  text-align: center;
+}
+#plot-caption {
+  font-family: var(--mono);
+  font-size: 0.7rem;
+  color: var(--muted);
+  text-align: center;
+  margin-top: 10px;
+  line-height: 1.5;
+}
+
+/* ── VIEW PLOT BUTTON ── */
+.view-plot-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  margin-top: 16px;
+  padding: 8px 18px;
+  background: transparent;
+  border: 1px solid var(--accent);
+  color: var(--accent);
+  border-radius: 20px;
+  font-family: var(--mono);
+  font-size: 0.72rem;
+  letter-spacing: 1px;
+  cursor: pointer;
+  transition: all 0.25s;
+}
+.view-plot-btn:hover {
+  background: rgba(0,212,255,0.08);
+  box-shadow: 0 0 16px rgba(0,212,255,0.2);
+}
+.view-plot-btn svg { width:14px; height:14px; }
+
+</style>
+</head>
+<body>
+
+<canvas id="bgCanvas"></canvas>
+<div id="progress-bar"></div>
+
+<div class="slides-wrapper">
+
+<!-- ══════════════════════════════════════════════════════════════════ -->
+<!-- SLIDE 1: TITLE - AUTHORS -->
+<!-- ══════════════════════════════════════════════════════════════════ -->
+<div class="slide active" id="slide-1">
+  <div class="title-tag">arXiv:1610.06918 · Extended Implementation · INSAT 2025</div>
+  <h1><span class="grad">Adversarial Neural</span><br>Cryptography</h1>
+  <p class="sub" style="max-width:600px;margin-top:10px;">Can neural networks learn to keep secrets<br>without being taught any cryptographic primitives?</p>
+  <div id="cipher-demo"></div>
+  <div class="title-authors">
+    <div class="author-pill">👨‍💻 <span>Mohamed ACHOURI</span></div>
+    <div class="author-pill">👨‍💻 <span>Youssef BELABED</span></div>
+    <div class="author-pill">👩‍💻 <span>Mariem OUERTANI</span></div>
+    <div class="author-pill">👩‍💻 <span>Tasnim JAMMELI</span></div>
+    <div class="author-pill">👩‍💻 <span>Meriem KAROUI</span></div>
+  </div>
+  <div style="margin-top: 12px; font-family: var(--mono); font-size: 0.7rem; color: var(--accent);">INSAT · Networks & Telecom · Advanced Deep Learning Project</div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════════ -->
+<!-- SLIDE 2: MOTIVATION  -->
+<!-- ══════════════════════════════════════════════════════════════════ -->
+<div class="slide" id="slide-2">
+  <div class="slide-label">Motivation</div>
+  <h2>Why Neural Cryptography?</h2>
+  <div class="grid-3" style="margin-top:10px;">
+    <div class="card">
+      <h3>🔒 Classical Limits</h3>
+      <p style="font-family:var(--mono);font-size:0.78rem;color:var(--muted);line-height:1.6;">
+        Static algorithms — fixed by expert design. Non-differentiable, impossible to integrate into gradient-based pipelines. Cannot adapt or evolve.
+      </p>
+    </div>
+    <div class="card yellow">
+      <h3 style="color:var(--accent4);">⚛️ Quantum Threat</h3>
+      <p style="font-family:var(--mono);font-size:0.78rem;color:var(--muted);line-height:1.6;">
+        Shor's algorithm breaks RSA & ECC. Grover weakens AES-128 to 64-bit. <em style="color:var(--accent4);">Harvest now, decrypt later</em> — the threat is already here.
+      </p>
+    </div>
+    <div class="card green">
+      <h3 style="color:var(--accent3);">🧠 Deep Learning Power</h3>
+      <p style="font-family:var(--mono);font-size:0.78rem;color:var(--muted);line-height:1.6;">
+        Networks learn vision, language, games from scratch. <em style="color:var(--accent3);">If they can learn to translate — why not encrypt?</em>
+      </p>
+    </div>
+  </div>
+  <div class="quote" style="margin-top:24px;">
+    "Cryptography is about making secrets. Machine learning is about finding patterns.<br>Can we pit them against each other?"
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════════ -->
+<!-- SLIDE 3: THE CENTRAL QUESTION -->
+<!-- ══════════════════════════════════════════════════════════════════ -->
+<div class="slide" id="slide-3">
+  <div class="slide-label">The Central Question</div>
+  <h1 style="font-size:clamp(1.5rem,3.5vw,2.8rem);max-width:900px;line-height:1.3;">
+    Can neural networks <span class="grad">autonomously develop</span> encryption strategies — without being taught any cryptographic primitive — using only <span class="grad2">adversarial pressure?</span>
+  </h1>
+  <p class="sub" style="margin-top:24px;">Abadi & Andersen · Google Brain · 2016 · arXiv:1610.06918</p>
+  <div class="card" style="max-width:600px;margin-top:20px;text-align:center;">
+    <p style="font-family:var(--mono);font-size:0.78rem;color:var(--muted);">
+      This is <span style="color:var(--accent2);">NOT</span> about learning existing ciphers like AES.<br>
+      It's about <span style="color:var(--accent3);">discovering entirely new ones</span> from first principles.
+    </p>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════════ -->
+<!-- SLIDE 4: ALICE BOB EVE -->
+<!-- ══════════════════════════════════════════════════════════════════ -->
+<div class="slide" id="slide-4">
+  <div class="slide-label">The Framework</div>
+  <h2>Three Agents, One Game</h2>
+
+  <!-- Flow diagram -->
+  <div style="width:100%;max-width:900px;display:flex;flex-direction:column;align-items:center;margin:16px 0;">
+    <div style="display:flex;align-items:center;gap:0;width:100%;">
+      <div class="flow-node alice" style="flex:1;text-align:center;">
+        <div class="flow-name c-blue">Alice</div>
+        <div class="flow-label">Plaintext P + Key K</div>
+      </div>
+      <div style="flex:2;display:flex;flex-direction:column;align-items:center;">
+        <div style="width:100%;height:2px;background:linear-gradient(90deg,var(--accent),var(--muted));margin:20px 0 4px;position:relative;">
+          <div style="position:absolute;top:-15px;left:50%;transform:translateX(-50%);font-family:var(--mono);font-size:0.7rem;color:var(--accent);">Ciphertext C</div>
+        </div>
+        <div style="display:flex;flex-direction:column;align-items:center;margin-top:8px;">
+          <div style="width:1px;height:24px;background:var(--accent2);"></div>
+          <div class="flow-node eve" style="min-width:110px;text-align:center;">
+            <div class="flow-name c-red">Eve</div>
+            <div class="flow-label">C only · No Key ❌</div>
+            <div style="font-family:var(--mono);font-size:0.72rem;color:var(--accent2);margin-top:6px;">P̂<sub>E</sub> ❌ Garbled</div>
+          </div>
+        </div>
+      </div>
+      <div class="flow-node bob" style="flex:1;text-align:center;">
+        <div class="flow-name c-green">Bob</div>
+        <div class="flow-label">Ciphertext C + Key K</div>
+        <div style="font-family:var(--mono);font-size:0.72rem;color:var(--accent3);margin-top:4px;">P̂<sub>B</sub> ✅ Correct</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="grid-3" style="max-width:900px;">
+    <div class="card">
+      <h3>Alice</h3>
+      <p style="font-family:var(--mono);font-size:0.75rem;color:var(--muted);line-height:1.5;">Encrypts P using shared key K. Goal: produce C that Bob can decode but Eve cannot.</p>
+      <div style="margin-top:8px;"><span class="badge c-blue">Input: 32 bits</span></div>
+    </div>
+    <div class="card green">
+      <h3 style="color:var(--accent3);">Bob</h3>
+      <p style="font-family:var(--mono);font-size:0.75rem;color:var(--muted);line-height:1.5;">Decrypts C using same key K. Has the structural advantage over Eve.</p>
+      <div style="margin-top:8px;"><span class="badge c-green">Input: 32 bits</span></div>
+    </div>
+    <div class="card red">
+      <h3 style="color:var(--accent2);">Eve</h3>
+      <p style="font-family:var(--mono);font-size:0.75rem;color:var(--muted);line-height:1.5;">Intercepts C only — no key. Structurally disadvantaged: same arch, half the info.</p>
+      <div style="margin-top:8px;"><span class="badge c-red">Input: 16 bits</span></div>
+    </div>
+  </div>
+</div>
+<!-- ══════════════════════════════════════════════════════════════════ -->
+<!-- SLIDE 5: OBJECTIVE  -->
+<!-- ══════════════════════════════════════════════════════════════════ -->
+<div class="slide" id="slide-5">
+  <div class="slide-label">Training Objective</div>
+  <h2>The Adversarial Minimax Game</h2>
+  <div class="grid-2" style="max-width:1000px;margin-top:10px;">
+    <div class="card">
+      <h3>Alice & Bob's Loss</h3>
+      <div class="code" style="margin:10px 0;">
+L_AB = Bob_error<br>
+     + (N/2 - Eve_error)² / (N/2)²<br><br>
+<span style="color:var(--muted);">Target: Bob → 0, Eve → N/2 = 8</span>
+      </div>
+      <p style="font-family:var(--mono);font-size:0.73rem;color:var(--muted);line-height:1.5;margin-top:8px;">Minimized when Bob decodes perfectly AND Eve is indistinguishable from random guessing (8/16 bits wrong).</p>
+    </div>
+    <div class="card red">
+      <h3 style="color:var(--accent2);">Eve's Loss</h3>
+      <div class="code" style="margin:10px 0;">
+L_E = Eve_reconstruction_error<br><br>
+<span style="color:var(--muted);">Trained separately — 2× steps/round</span><br>
+<span style="color:var(--muted);">Independent optimizer</span>
+      </div>
+      <p style="font-family:var(--mono);font-size:0.73rem;color:var(--muted);line-height:1.5;margin-top:8px;">Eve minimises her own error independently. Gets more training steps to stay competitive.</p>
+    </div>
+  </div>
+  <div class="card" style="max-width:1000px;margin-top:14px;display:flex;gap:30px;align-items:center;">
+    <div style="flex:1;">
+      <h3>No Dataset — Fully Random</h3>
+      <p style="font-family:var(--mono);font-size:0.73rem;color:var(--muted);line-height:1.6;">Fresh random (P, K) pairs every step. 20,000 steps × 4,096 batch = <span class="c-accent" style="color:var(--accent);">82M+ unique pairs</span>. No labels. No memorization.</p>
+    </div>
+    <div style="flex:1;">
+      <div class="bar-wrap"><div class="bar-label">Bob target</div><div class="bar-track"><div class="bar-fill" style="width:5%;background:var(--accent3);"></div></div><div class="bar-val c-green">~0 bits</div></div>
+      <div class="bar-wrap"><div class="bar-label">Eve target</div><div class="bar-track"><div class="bar-fill" style="width:50%;background:var(--accent2);"></div></div><div class="bar-val c-red">8.0 bits</div></div>
+      <div class="bar-wrap"><div class="bar-label">Random base</div><div class="bar-track"><div class="bar-fill" style="width:50%;background:var(--muted);"></div></div><div class="bar-val" style="color:var(--muted);">N/2 bits</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════════ -->
+<!-- SLIDE 6: ARCHITECTURE  -->
+<!-- ══════════════════════════════════════════════════════════════════ -->
+<div class="slide" id="slide-6">
+  <div class="slide-label">Architecture</div>
+  <h2>Mix & Transform — Layer by Layer</h2>
+  <div class="grid-2" style="max-width:1100px;align-items:start;margin-top:8px;">
+    <div>
+      <div style="font-family:var(--mono);font-size:0.7rem;color:var(--accent);margin-bottom:8px;">INPUT [P ∥ K] — 32 bits (Alice/Bob) · 16 bits (Eve)</div>
+      <div class="layer-box"><div class="layer-name">Dense(16)</div><div class="layer-desc">Global mixing · 512 params · no bias</div><div class="layer-act">Linear</div></div>
+      <div class="layer-arrow">↓</div>
+      <div class="layer-box"><div class="layer-name">Reshape (B,16,1)</div><div class="layer-desc">Prepare for 1D convolutions</div><div class="layer-act">—</div></div>
+      <div class="layer-arrow">↓</div>
+      <div class="layer-box"><div class="layer-name">Conv1D k=4, 1→2ch</div><div class="layer-desc">Short-range mixing (4-bit windows)</div><div class="layer-act" style="color:var(--accent3);">Sigmoid</div></div>
+      <div class="layer-arrow">↓</div>
+      <div class="layer-box"><div class="layer-name">Conv1D k=2, 2→4ch</div><div class="layer-desc">Pairwise adjacent interactions</div><div class="layer-act" style="color:var(--accent3);">Sigmoid</div></div>
+      <div class="layer-arrow">↓</div>
+      <div class="layer-box" style="border-color:var(--accent4);opacity:0.8;"><div class="layer-name" style="color:var(--accent4);">SelfAttention1D</div><div class="layer-desc">Optional · Residual + LayerNorm</div><div class="layer-act" style="color:var(--accent4);">--attention</div></div>
+      <div class="layer-arrow">↓</div>
+      <div class="layer-box"><div class="layer-name">Conv1D k=1, 4→4ch</div><div class="layer-desc">Pointwise refinement</div><div class="layer-act" style="color:var(--accent3);">Sigmoid</div></div>
+      <div class="layer-arrow">↓</div>
+      <div class="layer-box" style="border-color:var(--accent2);"><div class="layer-name" style="color:var(--accent2);">Conv1D k=1, 4→1ch</div><div class="layer-desc">Final projection · output domain</div><div class="layer-act" style="color:var(--accent2);">Tanh</div></div>
+      <div class="layer-arrow">↓</div>
+      <div style="font-family:var(--mono);font-size:0.7rem;color:var(--accent3);padding:8px 14px;">OUTPUT — 16 bits in (-1,+1)</div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:12px;">
+      <div class="card" style="flex:1;">
+        <h3>Key Design Principles</h3>
+        <div style="font-family:var(--mono);font-size:0.73rem;color:var(--muted);line-height:1.8;">
+          <div>→ <span class="c-blue">Dense first</span>: global mixing of all bits</div>
+          <div>→ <span class="c-blue">Conv after</span>: local positional refinement</div>
+          <div>→ <span style="color:var(--accent2);">Tanh last</span>: output in (-1,+1) = XOR domain</div>
+          <div>→ <span class="c-green">stride=1 everywhere</span>: sequence len stays 16</div>
+          <div>→ <span style="color:var(--accent4);">SAME padding</span>: no border information loss</div>
+        </div>
+      </div>
+      <div class="card green">
+        <h3 style="color:var(--accent3);">Parameter Count</h3>
+        <table class="tbl" style="margin-top:6px;">
+          <tr><th>Agent</th><th>FC params</th><th>Total</th></tr>
+          <tr><td>Alice</td><td>512</td><td>567</td></tr>
+          <tr><td>Bob</td><td>512</td><td>567</td></tr>
+          <tr><td>Eve</td><td>256</td><td>311</td></tr>
+        </table>
+        <p style="font-family:var(--mono);font-size:0.68rem;color:var(--muted);margin-top:8px;">Intentionally tiny — security must come from learning, not capacity.</p>
+      </div>
+      <div class="card yellow">
+        <h3 style="color:var(--accent4);">Why {-1,+1} not {0,1}?</h3>
+        <p style="font-family:var(--mono);font-size:0.73rem;color:var(--muted);line-height:1.5;">XOR in {-1,+1} = multiplication → <span style="color:var(--accent4);">differentiable</span>. Gradients flow through ciphertext back to Alice. Tanh enforces this domain.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════════ -->
+<!-- SLIDE 7: FOUR PHASES  -->
+<!-- ══════════════════════════════════════════════════════════════════ -->
+<div class="slide" id="slide-7">
+  <div class="slide-label">Training Dynamics</div>
+  <h2>The Four Phases of Learning</h2>
+  <canvas id="lossChart"></canvas>
+  <div class="timeline" style="max-width:900px;">
+    <div class="phase" style="border-color:var(--border);">
+      <div class="phase-num">PHASE 1 · 0–500</div>
+      <div class="phase-title c-blue">🎲 Random</div>
+      <div class="phase-desc">All agents random. Both errors near baseline 8 bits.</div>
+    </div>
+    <div class="phase" style="border-color:var(--accent4);">
+      <div class="phase-num">PHASE 2 · 500–3k</div>
+      <div class="phase-title" style="color:var(--accent4);">🔓 Trivial Cipher</div>
+      <div class="phase-desc">Alice/Bob find simple protocol. Eve exploits it immediately.</div>
+    </div>
+    <div class="phase" style="border-color:var(--accent2);">
+      <div class="phase-num">PHASE 3 · 3k–8k</div>
+      <div class="phase-title c-red">💥 Crisis</div>
+      <div class="phase-desc">Eve adapts. Bob's error RISES — the adversarial dance.</div>
+    </div>
+    <div class="phase" style="border-color:var(--accent3);">
+      <div class="phase-num">PHASE 4 · 8k–20k</div>
+      <div class="phase-title c-green">🔐 Secure</div>
+      <div class="phase-desc">Key-dependent cipher emerges. Eve pushed to random baseline.</div>
+    </div>
+  </div>
+  <p style="font-family:var(--mono);font-size:0.72rem;color:var(--muted);margin-top:10px;">Phase 3 rise in Bob's error is a <span class="c-green">positive sign</span> — adversarial pressure is working.</p>
+  <button class="view-plot-btn" onclick="openPlots('slide7')">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+    View Training Loss Plot
+  </button>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════════ -->
+<!-- SLIDE 8: LOSS VARIANTS  -->
+<!-- ══════════════════════════════════════════════════════════════════ -->
+<div class="slide" id="slide-8">
+  <div class="slide-label">Experiments · Loss Functions</div>
+  <h2>Not All Loss Functions Are Equal</h2>
+  <div class="grid-3" style="max-width:1100px;margin-top:12px;">
+    <div class="card green">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+        <h3 style="color:var(--accent3);">Quadratic ✅</h3>
+        <span class="badge c-green">GENUINE SECURITY</span>
+      </div>
+      <table class="tbl">
+        <tr><td>Bob error</td><td class="c-green">0.56 bits</td></tr>
+        <tr><td>Eve (train)</td><td>7.62 bits</td></tr>
+        <tr><td>Eve (post)</td><td class="c-green">9.04 bits</td></tr>
+        <tr><td>Secure runs</td><td class="c-green">5/5 ✅</td></tr>
+      </table>
+      <p style="font-family:var(--mono);font-size:0.7rem;color:var(--muted);margin-top:10px;line-height:1.5;">Vanishing gradient near target. Genuine confusion. Only variant achieving real security.</p>
+    </div>
+    <div class="card yellow">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+        <h3 style="color:var(--accent4);">Linear ⚠️</h3>
+        <span class="badge" style="color:var(--accent4);border-color:var(--accent4);">DECEPTIVE</span>
+      </div>
+      <table class="tbl">
+        <tr><td>Bob error</td><td>0.01 bits</td></tr>
+        <tr><td>Eve (train)</td><td class="c-yellow" style="color:var(--accent4);">14.56 bits</td></tr>
+        <tr><td>Eve (post)</td><td class="c-yellow" style="color:var(--accent4);">14.08 bits</td></tr>
+        <tr><td>Secure runs</td><td>5/5 ⚠️</td></tr>
+      </table>
+      <p style="font-family:var(--mono);font-size:0.7rem;color:var(--muted);margin-top:10px;line-height:1.5;">Anti-correlation! Eve >baseline means negate output → 1.92 bits error. Near-perfect break.</p>
+    </div>
+    <div class="card red">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+        <h3 style="color:var(--accent2);">BCE ❌</h3>
+        <span class="badge c-red">TOTAL COLLAPSE</span>
+      </div>
+      <table class="tbl">
+        <tr><td>Bob error</td><td class="c-red">3.55 bits</td></tr>
+        <tr><td>Eve (train)</td><td class="c-red">3.21 bits</td></tr>
+        <tr><td>Eve (post)</td><td class="c-red">2.76 bits</td></tr>
+        <tr><td>Secure runs</td><td class="c-red">0/5 ❌</td></tr>
+      </table>
+      <p style="font-family:var(--mono);font-size:0.7rem;color:var(--muted);margin-top:10px;line-height:1.5;">Bob and Eve perform equally. Alice never establishes a cipher Eve can't also read.</p>
+    </div>
+  </div>
+  <button class="view-plot-btn" onclick="openPlots('slide8')" style="margin-top:14px;">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><polyline points="3 9 21 9"/><polyline points="9 21 9 9"/></svg>
+    View Loss & Robustness Plots
+  </button>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════════ -->
+<!-- SLIDE 9: STEP RATIO  -->
+<!-- ══════════════════════════════════════════════════════════════════ -->
+<div class="slide" id="slide-9">
+  <div class="slide-label">Experiments · Step Ratio</div>
+  <h2>The Eve Training Step Ratio</h2>
+  <div class="grid-2" style="max-width:1000px;margin-top:12px;align-items:start;">
+    <div>
+      <table class="tbl">
+        <thead><tr><th>eve_steps</th><th>Bob err</th><th>Robustness</th><th>Secure</th><th>Verdict</th></tr></thead>
+        <tbody>
+          <tr><td>1</td><td class="c-red">1.56</td><td>4.60 (57%)</td><td class="c-red">0/5</td><td>❌ Too weak</td></tr>
+          <tr style="background:rgba(0,212,255,0.05);"><td><strong>2</strong></td><td class="c-green"><strong>0.56</strong></td><td class="c-green"><strong>9.04 (113%)</strong></td><td class="c-green"><strong>5/5</strong></td><td>✅ <strong>SWEET SPOT</strong></td></tr>
+          <tr><td>3</td><td>0.77</td><td>8.42 (105%)</td><td class="c-green">5/5</td><td>✅ Good</td></tr>
+          <tr><td>4</td><td class="c-red">1.84</td><td>6.06 (76%)</td><td class="c-red">0/5</td><td>❌ Too strong</td></tr>
+        </tbody>
+      </table>
+      <div class="card" style="margin-top:14px;">
+        <h3>Non-Monotonic Behaviour</h3>
+        <p style="font-family:var(--mono);font-size:0.75rem;color:var(--muted);line-height:1.6;">
+          Both too few <span class="c-red">(1)</span> and too many <span class="c-red">(4)</span> Eve steps cause failure.<br>
+          Too few → no adversarial pressure, trivial cipher survives.<br>
+          Too many → Alice/Bob can't converge in 20k steps.<br>
+          <span class="c-green">eve_steps=2 confirms the paper's recommendation.</span>
+        </p>
+      </div>
+    </div>
+    <div>
+      <canvas id="stepChart" style="width:100%;height:260px;"></canvas>
+    </div>
+  </div>
+
+    <button class="view-plot-btn" onclick="openPlots('slide9')" style="margin-top:12px;">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="3" x2="9" y2="21"/><line x1="15" y1="3" x2="15" y2="21"/></svg>
+      View Eve Robustness Bar Charts
+    </button>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════════ -->
+<!-- SLIDE 10: CONTRASTIVE LEARNING  -->
+<!-- ══════════════════════════════════════════════════════════════════ -->
+<div class="slide" id="slide-10">
+  <div class="slide-label">Learning Paradigm</div>
+  <h2>Why NOT Contrastive Learning?</h2>
+  <div class="grid-2" style="max-width:1000px;margin-top:10px;align-items:start;">
+    <div class="card" style="border-color:var(--muted);">
+      <h3 style="color:var(--muted);">Contrastive Learning (SimCLR, CLIP...)</h3>
+      <div style="font-family:var(--mono);font-size:0.75rem;color:var(--muted);line-height:1.8;margin-top:8px;">
+        <div>→ Pulls <em>similar</em> samples together in embedding space</div>
+        <div>→ Pushes <em>dissimilar</em> samples apart</div>
+        <div>→ Goal: learn good <strong>representations</strong></div>
+        <div>→ Needs a labeled/unlabeled dataset</div>
+        <div>→ One model, no adversarial competition</div>
+        <div>→ Signal: sample <em>similarity / distance</em></div>
+      </div>
+    </div>
+    <div class="card green">
+      <h3 style="color:var(--accent3);">Adversarial Neural Crypto</h3>
+      <div style="font-family:var(--mono);font-size:0.75rem;color:var(--muted);line-height:1.8;margin-top:8px;">
+        <div>→ Three <em>competing agents</em> with conflicting goals</div>
+        <div>→ Goal: learn to <strong>encrypt and decrypt</strong></div>
+        <div>→ No dataset — randomly generated data</div>
+        <div>→ Multi-agent adversarial game (GAN-inspired)</div>
+        <div>→ Signal: <em>agent competition</em>, not sample distance</div>
+        <div>→ Security emerges from <strong>pressure</strong>, not similarity</div>
+      </div>
+    </div>
+  </div>
+  <div style="max-width:1000px;margin-top:14px;display:grid;grid-template-columns:repeat(2,1fr);gap:10px;">
+    <div style="padding:10px 14px;border:1px solid var(--accent2);border-radius:8px;font-family:var(--mono);font-size:0.72rem;color:var(--muted);">❌ No notion of "similar" ciphertexts — what would that mean?</div>
+    <div style="padding:10px 14px;border:1px solid var(--accent2);border-radius:8px;font-family:var(--mono);font-size:0.72rem;color:var(--muted);">❌ Security requires a live adversary, not a distance metric</div>
+    <div style="padding:10px 14px;border:1px solid var(--accent2);border-radius:8px;font-family:var(--mono);font-size:0.72rem;color:var(--muted);">❌ Contrastive learning produces embeddings — not encryption functions</div>
+    <div style="padding:10px 14px;border:1px solid var(--accent2);border-radius:8px;font-family:var(--mono);font-size:0.72rem;color:var(--muted);">❌ Eve needs to actively attack, not just be a "negative sample"</div>
+  </div>
+  <p style="font-family:var(--mono);font-size:0.75rem;color:var(--muted);margin-top:12px;">Both push/pull — but contrastive pushes <span class="c-blue">data points</span> apart · neural crypto pushes <span class="c-green">agents</span> apart.</p>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════════ -->
+<!-- SLIDE 11: ENHANCEMENTS -->
+<!-- ══════════════════════════════════════════════════════════════════ -->
+<div class="slide" id="slide-11">
+  <div class="slide-label">Our Contribution</div>
+  <h2>INSAT Team Extensions to Abadi & Andersen (2016)</h2>
+  <div class="scrollable" style="max-width:1100px;">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:4px;">
+
+      <div class="enh-item">
+        <div class="enh-icon">🔧</div>
+        <div class="enh-body">
+          <h4>TensorFlow 2.x / Keras Reimplementation</h4>
+          <p>Original used TF 1.x with session-based graphs. Full rewrite with eager execution, tf.GradientTape, modern Keras layers and training loops.</p>
+        </div>
+        <div class="enh-tag extended">Modernised</div>
+      </div>
+
+      <div class="enh-item">
+        <div class="enh-icon">📐</div>
+        <div class="enh-body">
+          <h4>Configurable Loss Functions</h4>
+          <p>Original paper uses only quadratic loss. We added <strong>linear</strong> and <strong>BCE</strong> variants, revealing anti-correlation and total collapse failure modes.</p>
+        </div>
+        <div class="enh-tag new">New</div>
+      </div>
+
+      <div class="enh-item">
+        <div class="enh-icon">👁️</div>
+        <div class="enh-body">
+          <h4>Self-Attention Mechanism</h4>
+          <p>Added optional SelfAttention1D with residual connection and LayerNorm after Conv2. Allows any position to attend to any other — transformer-inspired.</p>
+        </div>
+        <div class="enh-tag new">New</div>
+      </div>
+
+      <div class="enh-item">
+        <div class="enh-icon">🔤</div>
+        <div class="enh-body">
+          <h4>ASCII Text Encryption Mode</h4>
+          <p>Original only encrypted random binary vectors. We added real human-readable text encryption using bitwise ASCII encoding in {-1,+1} domain.</p>
+        </div>
+        <div class="enh-tag new">New</div>
+      </div>
+
+      <div class="enh-item">
+        <div class="enh-icon">🛡️</div>
+        <div class="enh-body">
+          <h4>Post-Training Eve Robustness Evaluation</h4>
+          <p>Original only measured Eve's in-training error. We added 5-run fresh Eve retraining protocol with 0.85×N/2 security threshold and statistical reporting.</p>
+        </div>
+        <div class="enh-tag new">New</div>
+      </div>
+
+      <div class="enh-item">
+        <div class="enh-icon">⚙️</div>
+        <div class="enh-body">
+          <h4>Configurable eve_steps Ratio</h4>
+          <p>Original fixed eve_steps=2. We made it a command-line parameter and systematically tested 1, 2, 3, 4, revealing non-monotonic behaviour.</p>
+        </div>
+        <div class="enh-tag extended">Extended</div>
+      </div>
+
+      <div class="enh-item">
+        <div class="enh-icon">📊</div>
+        <div class="enh-body">
+          <h4>Comprehensive Visualisation Suite</h4>
+          <p>Training loss curves, Eve robustness bar charts with security threshold line (0.85×N/2), color-coded secure/partial-break classification.</p>
+        </div>
+        <div class="enh-tag new">New</div>
+      </div>
+
+      <div class="enh-item">
+        <div class="enh-icon">🔢</div>
+        <div class="enh-body">
+          <h4>Multi-Seed Reproducibility Analysis</h4>
+          <p>Systematic testing across seeds 1, 42, 13 revealing ~70% success rate. Seed 13 selected as baseline for reproducibility.</p>
+        </div>
+        <div class="enh-tag extended">Extended</div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════════ -->
+<!-- SLIDE 12: RESULTS SUMMARY -->
+<!-- ══════════════════════════════════════════════════════════════════ -->
+<div class="slide" id="slide-12">
+  <div class="slide-label">Results</div>
+  <h2>All Experiments at a Glance</h2>
+  <div style="max-width:1000px;width:100%;margin-top:8px;overflow-x:auto;">
+    <table class="tbl" style="font-size:0.73rem;">
+      <thead>
+        <tr>
+          <th>Experiment</th>
+          <th>Bob Error</th>
+          <th>Eve (train)</th>
+          <th>Robustness</th>
+          <th>Secure</th>
+          <th>Verdict</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td>Baseline (quadratic, eve×2)</td><td class="c-green">0.56</td><td>7.62</td><td class="c-green">9.04 (113%)</td><td class="c-green">5/5</td><td>✅ Success</td></tr>
+        <tr><td>Linear loss</td><td class="c-green">0.01</td><td class="c-yellow" style="color:var(--accent4);">14.56</td><td class="c-yellow" style="color:var(--accent4);">14.08 (176%)</td><td>5/5 ⚠️</td><td>⚠️ Anti-corr</td></tr>
+        <tr><td>BCE loss</td><td class="c-red">3.55</td><td class="c-red">3.21</td><td class="c-red">2.76 (35%)</td><td class="c-red">0/5</td><td>❌ Collapse</td></tr>
+        <tr><td>eve_steps = 1</td><td class="c-red">1.56</td><td>7.43</td><td class="c-red">4.60 (57%)</td><td class="c-red">0/5</td><td>❌ Too weak</td></tr>
+        <tr><td>eve_steps = 3</td><td class="c-green">0.77</td><td>7.51</td><td class="c-green">8.42 (105%)</td><td class="c-green">5/5</td><td>✅ Good</td></tr>
+        <tr><td>eve_steps = 4</td><td class="c-red">1.84</td><td>7.25</td><td class="c-red">6.06 (76%)</td><td class="c-red">0/5</td><td>❌ Too strong</td></tr>
+        <tr><td>+ Self-Attention</td><td class="c-red">1.55</td><td>7.25</td><td class="c-red">6.15 (77%)</td><td class="c-red">0/5</td><td>❌ Hurts @N=16</td></tr>
+        <tr><td>ASCII mode (quadratic)</td><td class="c-green">0.04</td><td>7.32</td><td>6.20 (77%)</td><td>2/5 ⚠️</td><td>⚠️ MSB bias</td></tr>
+        <tr><td>ASCII mode (linear)</td><td>0.47</td><td class="c-yellow" style="color:var(--accent4);">12.49</td><td class="c-yellow" style="color:var(--accent4);">15.01 (188%)</td><td>5/5 ⚠️</td><td>⚠️ Anti-corr</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="grid-3" style="max-width:1000px;margin-top:14px;gap:10px;">
+    <div style="text-align:center;padding:12px;border:1px solid var(--accent3);border-radius:8px;">
+      <div style="font-size:1.8rem;font-weight:800;color:var(--accent3);">5/5</div>
+      <div style="font-family:var(--mono);font-size:0.7rem;color:var(--muted);">Baseline secure runs</div>
+    </div>
+    <div style="text-align:center;padding:12px;border:1px solid var(--accent);border-radius:8px;">
+      <div style="font-size:1.8rem;font-weight:800;color:var(--accent);">113%</div>
+      <div style="font-family:var(--mono);font-size:0.7rem;color:var(--muted);">of random baseline</div>
+    </div>
+    <div style="text-align:center;padding:12px;border:1px solid var(--accent4);border-radius:8px;">
+      <div style="font-size:1.8rem;font-weight:800;color:var(--accent4);">9</div>
+      <div style="font-family:var(--mono);font-size:0.7rem;color:var(--muted);">experiments total</div>
+    </div>
+  </div>
+  <button class="view-plot-btn" onclick="openPlots('slide12')" style="margin-top:4px;">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+    View Baseline Plots
+  </button>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════════ -->
+<!-- SLIDE 13: SECURITY ANALYSIS  -->
+<!-- ══════════════════════════════════════════════════════════════════ -->
+<div class="slide" id="slide-13">
+  <div class="slide-label">Security Analysis</div>
+  <h2>Empirical Robustness vs Provable Security</h2>
+  <div class="grid-3" style="max-width:1000px;margin-top:12px;">
+    <div class="card red">
+      <h3 style="color:var(--accent2);">❌ Not IND-CPA</h3>
+      <p style="font-family:var(--mono);font-size:0.75rem;color:var(--muted);line-height:1.6;margin-top:8px;">No proof against all polynomial-time adversaries. Only tested against neural network attackers with the same architecture and bounded training budget.</p>
+    </div>
+    <div class="card red">
+      <h3 style="color:var(--accent2);">❌ Not Perfect Secrecy</h3>
+      <p style="font-family:var(--mono);font-size:0.75rem;color:var(--muted);line-height:1.6;margin-top:8px;">Key is only 16 bits. Shannon perfect secrecy requires key ≥ message and uniform distribution. Neither condition is satisfied here.</p>
+    </div>
+    <div class="card green">
+      <h3 style="color:var(--accent3);">✅ Empirically Robust</h3>
+      <p style="font-family:var(--mono);font-size:0.75rem;color:var(--muted);line-height:1.6;margin-top:8px;">5/5 fresh Eves fail to break baseline. Mean error 9.04 bits = 113% of random baseline. All fresh Eves exceeded the random-guess threshold.</p>
+    </div>
+  </div>
+
+  <div class="card" style="max-width:1000px;margin-top:16px;">
+    <div style="display:flex;align-items:center;gap:20px;">
+      <div style="font-family:var(--mono);font-size:0.75rem;color:var(--accent);flex:1;text-align:center;">Provable Security<br>(IND-CPA)</div>
+      <div style="flex:3;height:8px;background:linear-gradient(90deg,var(--accent),var(--accent2));border-radius:4px;position:relative;">
+        <div style="position:absolute;top:-20px;left:50%;transform:translateX(-50%);font-family:var(--mono);font-size:0.68rem;color:var(--muted);">← THE GAP →</div>
+      </div>
+      <div style="font-family:var(--mono);font-size:0.75rem;color:var(--accent3);flex:1;text-align:center;">Empirical<br>Robustness</div>
+    </div>
+    <p style="font-family:var(--mono);font-size:0.72rem;color:var(--muted);text-align:center;margin-top:12px;">Closing this gap is <span class="c-accent" style="color:var(--accent);">the central open problem</span> in adversarial neural cryptography.</p>
+  </div>
+
+  <div class="sec-meter" style="margin-top:14px;">
+    <div class="sec-row"><div class="sec-name">RSA-2048</div><div class="sec-track"><div class="sec-fill" style="width:90%;background:var(--accent3);"></div></div><div class="sec-status c-green">Formally proven ✅</div></div>
+    <div class="sec-row"><div class="sec-name">AES-256</div><div class="sec-track"><div class="sec-fill" style="width:85%;background:var(--accent3);"></div></div><div class="sec-status c-green">Formally proven ✅</div></div>
+    <div class="sec-row"><div class="sec-name">Neural Crypto</div><div class="sec-track"><div class="sec-fill" style="width:35%;background:var(--accent4);"></div></div><div class="sec-status" style="color:var(--accent4);">Empirical only ⚠️</div></div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════════ -->
+<!-- SLIDE 14: QUANTUM  -->
+<!-- ══════════════════════════════════════════════════════════════════ -->
+<div class="slide" id="slide-14">
+  <div class="slide-label">Quantum Threat</div>
+  <h2>Neural Crypto vs The Quantum Threat</h2>
+  <div class="grid-2" style="max-width:1000px;margin-top:12px;align-items:start;">
+    <div>
+      <div class="card red" style="margin-bottom:12px;">
+        <h3 style="color:var(--accent2);">The Quantum Threat to Classical Crypto</h3>
+        <table class="tbl" style="margin-top:10px;">
+          <tr><th>Algorithm</th><th>Attack</th><th>Status</th></tr>
+          <tr><td>RSA / ECC</td><td>Shor's algorithm</td><td class="c-red">💀 Broken</td></tr>
+          <tr><td>Diffie-Hellman</td><td>Shor's algorithm</td><td class="c-red">💀 Broken</td></tr>
+          <tr><td>AES-128</td><td>Grover's algorithm</td><td style="color:var(--accent4);">⚠️ Weakened</td></tr>
+          <tr><td>AES-256</td><td>Grover's algorithm</td><td class="c-green">✅ Still safe</td></tr>
+        </table>
+      </div>
+      <div class="card yellow">
+        <h3 style="color:var(--accent4);">Harvest Now, Decrypt Later</h3>
+        <p style="font-family:var(--mono);font-size:0.73rem;color:var(--muted);line-height:1.6;margin-top:8px;">Adversaries already collecting encrypted traffic today. Waiting for quantum computers powerful enough to decrypt. <span style="color:var(--accent4);">The threat is already here — even without quantum computers today.</span></p>
+      </div>
+    </div>
+    <div>
+      <div class="card green" style="margin-bottom:12px;">
+        <h3 style="color:var(--accent3);">Neural Crypto's Position</h3>
+        <div style="font-family:var(--mono);font-size:0.75rem;color:var(--muted);line-height:1.8;margin-top:8px;">
+          <div>→ <span class="c-green">No mathematical hardness assumption</span></div>
+          <div>→ Shor's algorithm has <span class="c-green">nothing to factor</span></div>
+          <div>→ Security = complexity of <span class="c-green">learned function</span></div>
+          <div>→ Fundamentally different attack surface</div>
+          <div>→ <span style="color:var(--accent4);">Not proven quantum-resistant</span> — but different</div>
+        </div>
+      </div>
+      <div class="quote">
+        Neural cryptography doesn't rely on the assumptions quantum computers break. Whether it resists quantum attackers is an <span class="c-green">open question</span> — and a fascinating one.
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════════ -->
+<!-- SLIDE 15: OPEN PROBLEMS -->
+<!-- ══════════════════════════════════════════════════════════════════ -->
+<div class="slide" id="slide-15">
+  <div class="slide-label">Future Work</div>
+  <h2>Open Problems</h2>
+  <div class="grid-2" style="max-width:1000px;margin-top:12px;">
+    <div class="enh-item">
+      <div class="enh-icon">📏</div>
+      <div class="enh-body">
+        <h4>Scaling to Larger N</h4>
+        <p>16 bits is toy-scale. Can we reach 64 or 128 bits with stable training? Attention may finally prove beneficial at larger N where fixed receptive fields bottleneck.</p>
+      </div>
+    </div>
+    <div class="enh-item">
+      <div class="enh-icon">📐</div>
+      <div class="enh-body">
+        <h4>Formal Security Proofs</h4>
+        <p>Can we connect empirical neural robustness to standard cryptographic assumptions like IND-CPA? This is the central theoretical open problem in the field.</p>
+      </div>
+    </div>
+    <div class="enh-item">
+      <div class="enh-icon">🔗</div>
+      <div class="enh-body">
+        <h4>CBC / CTR Mode Analogues</h4>
+        <p>Current chunking = ECB mode — leaks structure for repeated blocks. Neural equivalents of chaining modes would prevent this pattern leakage.</p>
+      </div>
+    </div>
+    <div class="enh-item">
+      <div class="enh-icon">🔑</div>
+      <div class="enh-body">
+        <h4>Public-Key Neural Crypto</h4>
+        <p>Can we learn asymmetric encryption? This would require a fundamentally different framework — possibly two separate key networks.</p>
+      </div>
+    </div>
+    <div class="enh-item">
+      <div class="enh-icon">👥</div>
+      <div class="enh-body">
+        <h4>Ensemble Adversaries</h4>
+        <p>Would training against multiple simultaneous Eves with different architectures improve robustness? A natural extension of adversarial training theory.</p>
+      </div>
+    </div>
+    <div class="enh-item">
+      <div class="enh-icon">⚛️</div>
+      <div class="enh-body">
+        <h4>Quantum Adversary Testing</h4>
+        <p>Is the learned cipher actually resistant to quantum-accelerated attacks? Connecting neural robustness to post-quantum security definitions.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════════ -->
+<!-- SLIDE 16: CONCLUSION  -->
+<!-- ══════════════════════════════════════════════════════════════════ -->
+<div class="slide" id="slide-16">
+  <div class="slide-label">Conclusion</div>
+  <h1 style="font-size:clamp(1.4rem,3vw,2.2rem);max-width:900px;margin-bottom:30px;">
+    What This Project <span class="grad">Demonstrates</span>
+  </h1>
+  <div class="grid-3" style="max-width:1000px;margin-bottom:24px;">
+    <div class="card green" style="text-align:center;padding:28px 20px;">
+      <div style="font-size:2rem;margin-bottom:12px;">🔐</div>
+      <h3 style="color:var(--accent3);margin-bottom:10px;">Neural networks CAN learn to keep secrets</h3>
+      <p style="font-family:var(--mono);font-size:0.72rem;color:var(--muted);line-height:1.5;">From scratch, without any cryptographic knowledge, using only adversarial pressure — encryption emerges spontaneously.</p>
+    </div>
+    <div class="card" style="text-align:center;padding:28px 20px;">
+      <div style="font-size:2rem;margin-bottom:12px;">⚡</div>
+      <h3 style="margin-bottom:10px;">The training objective is everything</h3>
+      <p style="font-family:var(--mono);font-size:0.72rem;color:var(--muted);line-height:1.5;">Loss design, step ratios, architecture details — small changes produce dramatically different outcomes. Quadratic + eve_steps=2 is the sweet spot.</p>
+    </div>
+    <div class="card yellow" style="text-align:center;padding:28px 20px;">
+      <div style="font-size:2rem;margin-bottom:12px;">🔬</div>
+      <h3 style="color:var(--accent4);margin-bottom:10px;">The gap IS the open problem</h3>
+      <p style="font-family:var(--mono);font-size:0.72rem;color:var(--muted);line-height:1.5;">We can show it works in practice. We cannot prove it works in theory. Closing this gap would be a major breakthrough.</p>
+    </div>
+  </div>
+  <div class="quote" style="text-align:center;border-left:none;border:1px solid var(--accent);border-radius:8px;max-width:750px;">
+    "Neural networks can learn to keep secrets. But learning to keep them <em>provably</em> — against all possible adversaries — remains an open and profound challenge."
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════════ -->
+<!-- SLIDE 17: THANK YOU -->
+<!-- ══════════════════════════════════════════════════════════════════ -->
+<div class="slide" id="slide-17">
+  <div class="slide-label">Q & A</div>
+  <h1 style="font-size:clamp(2rem,6vw,5rem);margin-bottom:8px;">Thank You</h1>
+  <p class="sub" style="margin-bottom:30px;">Questions welcome</p>
+  <div class="grid-3" style="max-width:1000px;margin-bottom:28px;">
+    <div class="card" style="text-align:center;">
+      <div style="font-family:var(--mono);font-size:0.7rem;color:var(--muted);">Academic Supervisor</div>
+      <div style="font-family:var(--sans);font-weight:700;font-size:0.95rem;margin:6px 0;">Dr. Wided MILED SOUID</div>
+      <div style="font-family:var(--mono);font-size:0.7rem;color:var(--muted);">INSAT · Networks & Telecom</div>
+    </div>
+    <div class="card" style="text-align:center;">
+      <div style="font-family:var(--mono);font-size:0.7rem;color:var(--muted);">Core Team</div>
+      <div style="font-family:var(--sans);font-weight:700;font-size:0.9rem;margin:6px 0;">ACHOURI Mohamed</div>
+      <div style="font-family:var(--sans);font-weight:700;font-size:0.9rem;margin:2px 0;">BELABED Youssef</div>
+      <div style="font-family:var(--sans);font-weight:700;font-size:0.9rem;margin:2px 0;">JAMMELI Tasnim</div>
+      <div style="font-family:var(--sans);font-weight:700;font-size:0.9rem;margin:2px 0;">OUERTANI Mariem</div>
+      <div style="font-family:var(--sans);font-weight:700;font-size:0.9rem;margin:2px 0;">KAROUI Meriem</div>
+    </div>
+    <div class="card" style="text-align:center;">
+      <div style="font-family:var(--mono);font-size:0.7rem;color:var(--muted);">Built with</div>
+      <div style="font-family:var(--mono);font-size:0.72rem;margin:6px 0;color:var(--accent3);">TensorFlow 2.x · Keras · NumPy</div>
+      <div style="font-family:var(--mono);font-size:0.68rem;color:var(--muted);">Based on Abadi & Andersen, 2016</div>
+    </div>
+  </div>
+  <div class="code" style="max-width:600px;text-align:center;font-size:0.8rem;padding:16px;">
+    arXiv:1610.06918 · "Learning to Protect Communications<br>with Adversarial Neural Cryptography"<br>
+    <span style="color: var(--accent);">INSAT 2025 · Advanced Deep Learning Project</span>
+  </div>
+</div>
+
+</div><!-- end slides-wrapper -->
+
+<!-- ── NAVIGATION ── -->
+<div id="nav">
+  <button id="nav-prev">←</button>
+  <span id="slide-counter">1 / 17</span>
+  <button id="nav-next">→</button>
+</div>
+
+<script>
+// ── BACKGROUND CANVAS ──────────────────────────────────────────────
+const canvas = document.getElementById('bgCanvas');
+const ctx = canvas.getContext('2d');
+let W, H, particles = [];
+
+function resize() {
+  W = canvas.width = window.innerWidth;
+  H = canvas.height = window.innerHeight;
+}
+
+function initParticles() {
+  particles = [];
+  for (let i = 0; i < 60; i++) {
+    particles.push({
+      x: Math.random() * W, y: Math.random() * H,
+      vx: (Math.random() - 0.5) * 0.3,
+      vy: (Math.random() - 0.5) * 0.3,
+      r: Math.random() * 1.5 + 0.3,
+      color: Math.random() > 0.6 ? '#00d4ff' : Math.random() > 0.5 ? '#00ff88' : '#1e2d3d'
+    });
+  }
+}
+
+function drawBg() {
+  ctx.clearRect(0, 0, W, H);
+  // grid
+  ctx.strokeStyle = 'rgba(30,45,61,0.4)';
+  ctx.lineWidth = 0.5;
+  for (let x = 0; x < W; x += 60) {
+    ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke();
+  }
+  for (let y = 0; y < H; y += 60) {
+    ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke();
+  }
+  // particles & connections
+  particles.forEach(p => {
+    p.x += p.vx; p.y += p.vy;
+    if (p.x < 0) p.x = W; if (p.x > W) p.x = 0;
+    if (p.y < 0) p.y = H; if (p.y > H) p.y = 0;
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+    ctx.fillStyle = p.color;
+    ctx.fill();
+  });
+  particles.forEach((a, i) => {
+    particles.slice(i + 1).forEach(b => {
+      const d = Math.hypot(a.x - b.x, a.y - b.y);
+      if (d < 120) {
+        ctx.beginPath();
+        ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y);
+        ctx.strokeStyle = `rgba(0,212,255,${0.15 * (1 - d / 120)})`;
+        ctx.lineWidth = 0.5;
+        ctx.stroke();
+      }
+    });
+  });
+  requestAnimationFrame(drawBg);
+}
+
+window.addEventListener('resize', () => { resize(); initParticles(); });
+resize(); initParticles(); drawBg();
+
+// ── CIPHER DEMO ANIMATION ──────────────────────────────────────────
+const cipherEl = document.getElementById('cipher-demo');
+const msgs = ['HELLO WORLD', 'NEURAL CRYPTO', 'ALICE BOB EVE', 'INSAT 2025'];
+let cIdx = 0;
+function animateCipher() {
+  const msg = msgs[cIdx % msgs.length];
+  const encoded = msg.split('').map(c => Math.random() > 0.5 ?
+    String.fromCharCode(33 + Math.floor(Math.random() * 93)) : c).join('');
+  cipherEl.textContent = encoded;
+  let steps = 0;
+  const interval = setInterval(() => {
+    const revealed = msg.split('').map((c, i) =>
+      i < steps ? '█' : String.fromCharCode(33 + Math.floor(Math.random() * 93))
+    ).join('');
+    cipherEl.textContent = revealed;
+    steps++;
+    if (steps > msg.length + 3) {
+      clearInterval(interval);
+      cipherEl.textContent = '█'.repeat(msg.length);
+      setTimeout(() => { cIdx++; animateCipher(); }, 1200);
+    }
+  }, 60);
+}
+animateCipher();
+
+// ── SLIDE NAVIGATION ──────────────────────────────────────────────
+const slides = document.querySelectorAll('.slide');
+const totalSlides = slides.length;
+let current = 0;
+
+
+
+function goTo(n) {
+  slides[current].classList.remove('active');
+  current = Math.max(0, Math.min(n, totalSlides - 1));
+  slides[current].classList.add('active');
+  document.getElementById('slide-counter').textContent = `${current + 1} / ${totalSlides}`;
+  document.getElementById('progress-bar').style.width = `${((current + 1) / totalSlides) * 100}%`;
+  if (current === 6) drawLossChart();
+  if (current === 8) drawStepChart();
+}
+
+document.getElementById('nav-prev').addEventListener('click', () => goTo(current - 1));
+document.getElementById('nav-next').addEventListener('click', () => goTo(current + 1));
+document.addEventListener('keydown', e => {
+  if (overlayActive) return;
+  if (e.key === 'ArrowRight' || e.key === 'ArrowDown') goTo(current + 1);
+  if (e.key === 'ArrowLeft'  || e.key === 'ArrowUp')   goTo(current - 1);
+});
+
+// touch swipe
+let tx = 0;
+document.addEventListener('touchstart', e => { tx = e.touches[0].clientX; });
+document.addEventListener('touchend',   e => {
+  const dx = tx - e.changedTouches[0].clientX;
+  if (Math.abs(dx) > 50) goTo(current + (dx > 0 ? 1 : -1));
+});
+
+// init progress
+document.getElementById('progress-bar').style.width = `${(1 / totalSlides) * 100}%`;
+
+// ── LOSS CHART (slide 7) ───────────────────────────────────────────
+function drawLossChart() {
+  const c = document.getElementById('lossChart');
+  if (!c) return;
+  c.width = c.offsetWidth * window.devicePixelRatio;
+  c.height = c.offsetHeight * window.devicePixelRatio;
+  const cx = c.getContext('2d');
+  cx.scale(window.devicePixelRatio, window.devicePixelRatio);
+  const W = c.offsetWidth, H = c.offsetHeight;
+  const pad = { t: 20, b: 30, l: 40, r: 20 };
+  const iW = W - pad.l - pad.r, iH = H - pad.t - pad.b;
+
+  // synthetic curves
+  const steps = 120;
+  function bobCurve(t) {
+    if (t < 0.1) return 7.5 + Math.random() * 0.5;
+    if (t < 0.25) return 7.5 - t * 20 + Math.random() * 0.3;
+    if (t < 0.5) return 3 + (t - 0.25) * 8 + Math.random() * 0.4;
+    return Math.max(0.56, 5 - (t - 0.5) * 12 + Math.random() * 0.2);
+  }
+  function eveCurve(t) {
+    if (t < 0.1) return 7.8 + Math.random() * 0.3;
+    if (t < 0.25) return 7.5 - t * 5 + Math.random() * 0.3;
+    if (t < 0.4) return 6 + t * 3 + Math.random() * 0.3;
+    return Math.min(8.2, 6.5 + (t - 0.4) * 4 + Math.random() * 0.3);
+  }
+
+  const bobPts = [], evePts = [];
+  for (let i = 0; i < steps; i++) {
+    const t = i / (steps - 1);
+    bobPts.push({ x: pad.l + t * iW, y: pad.t + (1 - bobCurve(t) / 16) * iH });
+    evePts.push({ x: pad.l + t * iW, y: pad.t + (1 - eveCurve(t) / 16) * iH });
+  }
+
+  cx.clearRect(0, 0, W, H);
+
+  // Phase backgrounds
+  const phases = [
+    { start: 0, end: 0.04, color: 'rgba(0,212,255,0.04)' },
+    { start: 0.04, end: 0.2,  color: 'rgba(255,184,0,0.04)' },
+    { start: 0.2,  end: 0.42, color: 'rgba(255,69,96,0.04)' },
+    { start: 0.42, end: 1.0,  color: 'rgba(0,255,136,0.04)' },
+  ];
+  phases.forEach(ph => {
+    cx.fillStyle = ph.color;
+    cx.fillRect(pad.l + ph.start * iW, pad.t, (ph.end - ph.start) * iW, iH);
+  });
+
+  // baseline
+  const baseY = pad.t + (1 - 8 / 16) * iH;
+  cx.strokeStyle = 'rgba(90,122,154,0.5)';
+  cx.lineWidth = 1;
+  cx.setLineDash([4, 4]);
+  cx.beginPath(); cx.moveTo(pad.l, baseY); cx.lineTo(pad.l + iW, baseY); cx.stroke();
+  cx.setLineDash([]);
+
+  // Eve curve
+  cx.strokeStyle = '#00ff88';
+  cx.lineWidth = 2;
+  cx.beginPath();
+  evePts.forEach((p, i) => i === 0 ? cx.moveTo(p.x, p.y) : cx.lineTo(p.x, p.y));
+  cx.stroke();
+
+  // Bob curve
+  cx.strokeStyle = '#ff4560';
+  cx.lineWidth = 2;
+  cx.beginPath();
+  bobPts.forEach((p, i) => i === 0 ? cx.moveTo(p.x, p.y) : cx.lineTo(p.x, p.y));
+  cx.stroke();
+
+  // axes
+  cx.strokeStyle = 'rgba(30,45,61,0.8)';
+  cx.lineWidth = 1;
+  cx.beginPath(); cx.moveTo(pad.l, pad.t); cx.lineTo(pad.l, pad.t + iH); cx.stroke();
+  cx.beginPath(); cx.moveTo(pad.l, pad.t + iH); cx.lineTo(pad.l + iW, pad.t + iH); cx.stroke();
+
+  // y labels
+  cx.fillStyle = '#5a7a9a';
+  cx.font = '10px Space Mono, monospace';
+  cx.textAlign = 'right';
+  [0, 4, 8, 12, 16].forEach(v => {
+    const y = pad.t + (1 - v / 16) * iH;
+    cx.fillText(v, pad.l - 4, y + 3);
+  });
+
+  // x labels
+  cx.textAlign = 'center';
+  ['0', '5k', '10k', '15k', '20k'].forEach((l, i) => {
+    cx.fillText(l, pad.l + (i / 4) * iW, pad.t + iH + 16);
+  });
+
+  // legend
+  cx.fillStyle = '#ff4560'; cx.fillRect(W - 100, pad.t, 10, 10);
+  cx.fillStyle = '#5a7a9a'; cx.font = '9px Space Mono, monospace';
+  cx.textAlign = 'left'; cx.fillText('Bob', W - 86, pad.t + 9);
+  cx.fillStyle = '#00ff88'; cx.fillRect(W - 100, pad.t + 16, 10, 10);
+  cx.fillStyle = '#5a7a9a'; cx.fillText('Eve', W - 86, pad.t + 25);
+}
+
+// ── STEP RATIO CHART (slide 9) ─────────────────────────────────────
+function drawStepChart() {
+  const c = document.getElementById('stepChart');
+  if (!c) return;
+  c.width = c.offsetWidth * window.devicePixelRatio;
+  c.height = c.offsetHeight * window.devicePixelRatio;
+  const cx = c.getContext('2d');
+  cx.scale(window.devicePixelRatio, window.devicePixelRatio);
+  const W = c.offsetWidth, H = c.offsetHeight;
+  const pad = { t: 30, b: 40, l: 50, r: 20 };
+  const iW = W - pad.l - pad.r, iH = H - pad.t - pad.b;
+
+  const data = [
+    { label: 'eve×1', rob: 4.60, secure: 0, color: '#ff4560' },
+    { label: 'eve×2', rob: 9.04, secure: 5, color: '#00ff88' },
+    { label: 'eve×3', rob: 8.42, secure: 5, color: '#00d4ff' },
+    { label: 'eve×4', rob: 6.06, secure: 0, color: '#ff4560' },
+  ];
+  const maxV = 10, n = data.length;
+  const bW = iW / n * 0.55, gap = iW / n;
+
+  cx.clearRect(0, 0, W, H);
+
+  // baseline
+  const baseY = pad.t + (1 - 8 / maxV) * iH;
+  cx.strokeStyle = 'rgba(90,122,154,0.5)';
+  cx.lineWidth = 1; cx.setLineDash([4,4]);
+  cx.beginPath(); cx.moveTo(pad.l, baseY); cx.lineTo(pad.l + iW, baseY); cx.stroke();
+  cx.setLineDash([]);
+  cx.fillStyle = '#5a7a9a'; cx.font = '9px Space Mono, monospace';
+  cx.textAlign = 'left'; cx.fillText('N/2 = 8', pad.l + iW - 50, baseY - 4);
+
+  data.forEach((d, i) => {
+    const x = pad.l + i * gap + gap / 2 - bW / 2;
+    const barH = (d.rob / maxV) * iH;
+    const y = pad.t + iH - barH;
+
+    // bar shadow
+    cx.fillStyle = d.color + '22';
+    cx.fillRect(x - 2, y + 2, bW + 4, barH + 2);
+
+    // bar
+    cx.fillStyle = d.color;
+    cx.fillRect(x, y, bW, barH);
+
+    // value
+    cx.fillStyle = d.color;
+    cx.font = 'bold 11px Space Mono, monospace';
+    cx.textAlign = 'center';
+    cx.fillText(d.rob.toFixed(1), x + bW / 2, y - 6);
+
+    // secure badge
+    cx.fillStyle = d.secure > 0 ? '#00ff88' : '#ff4560';
+    cx.font = '9px Space Mono, monospace';
+    cx.fillText(d.secure + '/5', x + bW / 2, y - 18);
+
+    // label
+    cx.fillStyle = '#5a7a9a';
+    cx.font = '10px Space Mono, monospace';
+    cx.fillText(d.label, x + bW / 2, pad.t + iH + 16);
+  });
+
+  // axes
+  cx.strokeStyle = 'rgba(30,45,61,0.8)'; cx.lineWidth = 1;
+  cx.beginPath(); cx.moveTo(pad.l, pad.t); cx.lineTo(pad.l, pad.t + iH); cx.stroke();
+  cx.beginPath(); cx.moveTo(pad.l, pad.t + iH); cx.lineTo(pad.l + iW, pad.t + iH); cx.stroke();
+
+  cx.fillStyle = '#5a7a9a'; cx.font = '9px Space Mono, monospace'; cx.textAlign = 'right';
+  [0,4,8,10].forEach(v => {
+    const y = pad.t + (1 - v / maxV) * iH;
+    cx.fillText(v, pad.l - 4, y + 3);
+  });
+
+  // title
+  cx.fillStyle = '#5a7a9a'; cx.font = '10px Space Mono, monospace'; cx.textAlign = 'center';
+  cx.fillText('Mean Eve robustness (bits) by eve_steps', pad.l + iW / 2, pad.t - 12);
+}
+
+const plotData = {
+  slide7: { title: 'TRAINING DYNAMICS', plots: [
+    { src: 'plots/seed_13/training_loss_curve.png', caption: 'Baseline training loss curve (seed 13, quadratic, eve_steps=2). Bob red 0.56 bits, Eve green 7.62 bits.' },
+    { src: 'plots/seed_13/final_summary_loss_curve.png', caption: 'Final summary loss curve full 20000 steps.' }
+  ]},
+  slide8: { title: 'LOSS FUNCTION VARIANTS', plots: [
+    { src: 'plots/seed_13/training_loss_curve.png', caption: 'Quadratic loss curve. Bob 0.56 bits, Eve 7.62 bits. 5/5 secure.' },
+    { src: 'plots/linear/training_loss_curve.png', caption: 'Linear loss curve. Eve 14.56 bits anti-correlated. Deceptive 5/5.' },
+    { src: 'plots/bce/training_loss_curve.png', caption: 'BCE loss curve. Collapse. Bob and Eve both near 3 bits. 0/5 secure.' },
+    { src: 'plots/seed_13/eve_retrain_results.png', caption: 'Quadratic Eve robustness bars. Mean 9.04 bits 113 percent. All 5 secure.' },
+    { src: 'plots/linear/eve_retrain_results.png', caption: 'Linear Eve robustness bars. Mean 14.08 bits anti-correlated.' },
+    { src: 'plots/bce/eve_retrain_results.png', caption: 'BCE Eve robustness bars. Mean 2.76 bits. Eve decodes nearly as well as Bob.' }
+  ]},
+  slide9: { title: 'EVE STEP RATIO', plots: [
+    { src: 'plots/eve_steps_1/training_loss_curve.png', caption: 'eve_steps=1 loss curve. Bob 1.56 bits. 0/5 secure.' },
+    { src: 'plots/eve_steps_1/eve_retrain_results.png', caption: 'eve_steps=1 robustness. Mean 4.60 bits 57 percent. All partial breaks.' },
+    { src: 'plots/seed_13/training_loss_curve.png', caption: 'eve_steps=2 sweet spot. Bob 0.56 bits. 5/5 secure.' },
+    { src: 'plots/seed_13/eve_retrain_results.png', caption: 'eve_steps=2 robustness. Mean 9.04 bits 113 percent. All secure.' },
+    { src: 'plots/eve_steps_3/training_loss_curve.png', caption: 'eve_steps=3 loss curve. Bob 0.77 bits. 5/5 secure.' },
+    { src: 'plots/eve_steps_3/eve_retrain_results.png', caption: 'eve_steps=3 robustness. Mean 8.42 bits 105 percent. All secure.' },
+    { src: 'plots/eve_steps_4/training_loss_curve.png', caption: 'eve_steps=4 loss curve. Bob 1.84 bits. 0/5 secure.' },
+    { src: 'plots/eve_steps_4/eve_retrain_results.png', caption: 'eve_steps=4 robustness. Mean 6.06 bits 76 percent. All partial breaks.' }
+  ]},
+  slide12: { title: 'BASELINE RESULTS', plots: [
+    { src: 'plots/seed_13/training_loss_curve.png', caption: 'Baseline training loss curve seed 13 quadratic eve_steps=2.' },
+    { src: 'plots/seed_13/eve_retrain_results.png', caption: 'Baseline Eve robustness. 5/5 secure mean 9.04 bits.' },
+    { src: 'plots/seed_13/final_summary_loss_curve.png', caption: 'Final summary loss curve full run.' }
+  ]}
+};
+
+var overlayActive = false;
+var currentPlots = [];
+var currentPlotIdx = 0;
+
+function openPlots(slideKey) {
+  var data = plotData[slideKey];
+  if (!data) return;
+  currentPlots = data.plots;
+  currentPlotIdx = 0;
+  document.getElementById('plot-modal-title').textContent = data.title;
+  document.getElementById('plot-overlay').classList.add('open');
+  overlayActive = true;
+  renderPlot();
+}
+
+function renderPlot() {
+  var p = currentPlots[currentPlotIdx];
+  var img = document.getElementById('plot-img');
+  var placeholder = document.getElementById('plot-img-placeholder');
+  var caption = document.getElementById('plot-caption');
+  var counter = document.getElementById('plot-counter');
+  var prevBtn = document.getElementById('plot-prev');
+  var nextBtn = document.getElementById('plot-next');
+  img.style.display = 'none';
+  placeholder.style.display = 'block';
+  placeholder.textContent = 'Loading: ' + p.src;
+  var tmp = new Image();
+  tmp.onload = function() { img.src = p.src; img.style.display = 'block'; placeholder.style.display = 'none'; };
+  tmp.onerror = function() { placeholder.textContent = 'Path not found: ' + p.src + ' -- replace with your actual file path.'; };
+  tmp.src = p.src;
+  caption.textContent = p.caption;
+  counter.textContent = (currentPlotIdx + 1) + ' / ' + currentPlots.length;
+  prevBtn.disabled = currentPlotIdx === 0;
+  nextBtn.disabled = currentPlotIdx === currentPlots.length - 1;
+  document.getElementById('plot-nav').style.display = currentPlots.length > 1 ? 'flex' : 'none';
+}
+
+function closePlots() {
+  document.getElementById('plot-overlay').classList.remove('open');
+  overlayActive = false;
+  document.getElementById('plot-img').src = '';
+}
+
+
+document.addEventListener('DOMContentLoaded', function() {
+  const plotClose = document.getElementById('plot-close');
+  const plotBackdrop = document.getElementById('plot-backdrop');
+  const plotPrev = document.getElementById('plot-prev');
+  const plotNext = document.getElementById('plot-next');
+  
+  if (plotClose) {
+    plotClose.addEventListener('click', closePlots);
+  }
+  
+  if (plotBackdrop) {
+    plotBackdrop.addEventListener('click', closePlots);
+  }
+  
+  if (plotPrev) {
+    plotPrev.addEventListener('click', function() { 
+      if (currentPlotIdx > 0) { 
+        currentPlotIdx--; 
+        renderPlot(); 
+      } 
+    });
+  }
+  
+  if (plotNext) {
+    plotNext.addEventListener('click', function() { 
+      if (currentPlotIdx < currentPlots.length - 1) { 
+        currentPlotIdx++; 
+        renderPlot(); 
+      } 
+    });
+  }
+});
+
+
+document.addEventListener('keydown', function(e) {
+  if (!overlayActive) return;
+  
+  if (e.key === 'Escape') { 
+    closePlots(); 
+    e.preventDefault();
+    e.stopPropagation(); 
+    return; 
+  }
+  
+  if (e.key === 'ArrowRight' && currentPlotIdx < currentPlots.length - 1) { 
+    currentPlotIdx++; 
+    renderPlot(); 
+    e.preventDefault();
+    e.stopPropagation(); 
+  }
+  
+  if (e.key === 'ArrowLeft' && currentPlotIdx > 0) { 
+    currentPlotIdx--; 
+    renderPlot(); 
+    e.preventDefault();
+    e.stopPropagation(); 
+  }
+}, true);
+
+
+</script>
+
+<div id="plot-overlay">
+  <div id="plot-backdrop"></div>
+  <div id="plot-modal">
+    <div id="plot-modal-header">
+      <span id="plot-modal-title">Plot Viewer</span>
+      <button id="plot-close">✕</button>
+    </div>
+    <div id="plot-img-wrap">
+      <img id="plot-img" src="" alt="" style="display:none;">
+      <div id="plot-img-placeholder">📁 Image path not set — replace src in plots config</div>
+    </div>
+    <div id="plot-caption"></div>
+    <div id="plot-nav">
+      <button class="plot-nav-btn" id="plot-prev">←</button>
+      <span id="plot-counter">1 / 1</span>
+      <button class="plot-nav-btn" id="plot-next">→</button>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>

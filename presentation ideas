@@ -1,0 +1,564 @@
+# Enhanced Canva Presentation
+
+Based on your comprehensive report, I've enhanced the presentation with deeper insights, more precise technical details, and clearer connections to the theoretical foundations. Here's the improved version:
+
+---
+
+## Slide 1 — Title
+**Title:** Learning to Protect Communications with Adversarial Neural Cryptography
+**Subtitle:** Can neural networks learn to keep secrets without being taught any cryptographic primitives?
+**Bottom:** Your Name · INSAT · Networks & Telecommunications Department
+
+**Small footnote:** Based on Abadi & Andersen (2016) — TensorFlow 2.x Enhanced Implementation
+
+---
+
+## Slide 2 — Motivation
+**Title:** Why Neural Cryptography?
+
+**Three columns with icons:**
+
+| 🔒 | ⚛️ | 🧠 |
+|---|---|---|
+| **Classical crypto is static** | **Quantum computers threaten RSA/ECC** | **Deep learning learns from scratch** |
+| Expert-designed, fixed algorithms | Shor's algorithm breaks factorization | Neural nets discover solutions without explicit rules |
+| Non-differentiable — can't integrate with gradient-based learning | "Harvest now, decrypt later" — the threat is already here | If they can learn language, vision, games — why not encryption? |
+
+**Bottom quote:** *"Cryptography is about making secrets. Machine learning is about finding patterns. Can we pit them against each other?"*
+
+---
+
+## Slide 3 — The Central Question
+**Full slide, centered:**
+
+> *Can neural networks autonomously develop encryption strategies — without being taught any cryptographic primitive — using only adversarial pressure?*
+
+**Bottom attribution:** Abadi & Andersen, Google Brain, 2016 | arXiv:1610.06918
+
+**Small note:** This is NOT about learning existing ciphers (like AES) — it's about discovering entirely new ones from first principles
+
+---
+
+## Slide 4 — The Alice–Bob–Eve Framework
+**Title:** Three Agents, One Game
+
+**Visual — horizontal flow diagram:**
+```
+┌─────────┐     ┌──────────┐     ┌─────────┐
+│  Alice  │────▶│ Cipher C │────▶│   Bob   │───▶ P̂_B ✅
+└─────────┘     └──────────┘     └─────────┘
+     │                │
+     ▼                ▼
+  Secret Key K    ┌─────────┐
+     │            │   Eve   │───▶ P̂_E ❌
+     └───────────▶└─────────┘
+```
+*Eve only sees ciphertext C — no key access*
+
+**Three info cards:**
+
+| Agent | Role | Input | Has Key? | Objective |
+|---|---|---|---|---|
+| **Alice** | Sender/Encoder | Plaintext P + Key K | ✅ | Encrypt so Bob can decode but Eve cannot |
+| **Bob** | Receiver/Decoder | Ciphertext C + Key K | ✅ | Reconstruct P perfectly |
+| **Eve** | Eavesdropper/Attacker | Ciphertext C only | ❌ | Reconstruct P from C alone |
+
+**Key insight:** Eve is **structurally disadvantaged** — same architecture, half the input information. This asymmetry is the source of security.
+
+---
+
+## Slide 5 — The Adversarial Objective
+**Title:** Training as a Minimax Game
+
+**Two columns:**
+
+Left — **Alice & Bob's Goal:**
+- Bob must reconstruct P accurately
+- Eve must be **indistinguishable from random guessing**
+- Random baseline for N-bit message = N/2 bits wrong
+- Loss combines both objectives:
+
+$$L_{AB} = \underbrace{\frac{1}{B}\sum\frac{d_1(P,\hat{P}_B)}{N}}_{\text{Bob's reconstruction}} + \underbrace{\mathcal{L}_{\text{adv}}(P,\hat{P}_E)}_{\text{Adversarial penalty}}$$
+
+Right — **Eve's Goal:**
+- Minimise her own reconstruction error
+- Trained **independently** with separate optimizer
+- Gets more training steps per round (configurable)
+
+$$L_E = \frac{1}{B}\sum d_1(P,\hat{P}_E)$$
+
+**Bottom box — The Quadratic Adversarial Penalty (original paper):**
+$$\mathcal{L}_{\text{adv}} = \frac{\left(\frac{N}{2} - d_1(P,\hat{P}_E)\right)^2}{\left(\frac{N}{2}\right)^2}$$
+
+*Minimized when Eve's error = N/2 — the sweet spot between too good and trivially reversible*
+
+---
+
+## Slide 6 — Three Loss Variants Compared
+**Title:** Not All Loss Functions Are Created Equal
+
+**Three columns with actual results from your experiments:**
+
+| Quadratic ✅ | Linear ⚠️ | BCE ❌ |
+|---|---|---|
+| **"Genuine confusion"** | **"Anti-correlation"** | **"Total collapse"** |
+| Bob: 0.56 bits | Bob: 0.01 bits | Bob: 3.55 bits |
+| Eve (train): 7.62 bits | Eve (train): 14.56 bits | Eve (train): 3.21 bits |
+| Eve (post): 9.04 bits | Eve (post): 14.08 bits | Eve (post): 2.76 bits |
+| 5/5 secure runs ✅ | 5/5 secure ⚠️ (deceptive) | 0/5 secure ❌ |
+| Vanishing gradient near target | Constant gradient pushes Eve away | Negative loss, unstable |
+
+**Critical insight:** Linear loss's 5/5 "secure" runs are deceptive — Eve's error is far ABOVE baseline (14 bits), meaning she's anti-correlated. An adversary who simply negates her output would get **~2 bits error** — near-perfect break!
+
+**Bottom takeaway:** Only quadratic loss achieves genuine, interpretable security.
+
+---
+
+## Slide 7 — The Mix & Transform Architecture
+**Title:** Network Design — Mix & Transform
+
+**Visual layer diagram with annotations:**
+
+```
+Input [P || K]  ──►  size 32
+         │
+         ▼
+┌─────────────────┐
+│   Dense(16)     │  Global mixing — every output bit sees all input bits
+│  (no bias)      │  512 parameters
+└─────────────────┘
+         │
+         ▼
+   Reshape (B,16,1)
+         │
+         ▼
+┌─────────────────┐
+│  Conv1D k=4     │  Short-range mixing (4-bit windows)
+│  1 → 2 channels │  Sigmoid activation
+└─────────────────┘
+         │
+         ▼
+┌─────────────────┐
+│  Conv1D k=2     │  Pairwise interactions between adjacent positions
+│  2 → 4 channels │  Sigmoid activation
+└─────────────────┘
+         │
+         ▼
+┌─────────────────┐
+│[Optional]       │  Self-Attention + Residual + LayerNorm
+│ SelfAttention1D │  (--attention flag)
+└─────────────────┘
+         │
+         ▼
+┌─────────────────┐
+│  Conv1D k=1     │  Pointwise refinement across channels
+│  4 → 4 channels │  Sigmoid activation
+└─────────────────┘
+         │
+         ▼
+┌─────────────────┐
+│  Conv1D k=1     │  Final projection to single channel
+│  4 → 1 channel  │  TANH activation (output in [-1,+1])
+└─────────────────┘
+         │
+         ▼
+    Squeeze → size 16
+```
+
+**Key properties:**
+- All strides = 1, SAME padding — sequence length stays 16 throughout
+- Total params: 567 (Alice/Bob), 311 (Eve)
+- Designed so XOR could emerge, but not constrained to use it
+
+---
+
+## Slide 8 — Why {-1,+1} Instead of {0,1}?
+**Title:** The Importance of Representation
+
+**Two columns:**
+
+Left — **Binary choice matters:**
+- XOR in {0,1}: $a \oplus b = a + b \mod 2$ — not differentiable
+- XOR in {-1,+1}: $a \oplus b = a \times b$ — smooth and differentiable
+- Gradient descent needs smooth functions to learn
+
+Right — **Ciphertext is continuous:**
+- Alice's output is floating-point in [-1,+1]
+- Tanh activation enforces this range
+- Allows gradient to flow through ciphertext back to Alice
+- Bob and Eve must learn to interpret continuous values
+
+**Bottom formula:**
+$$C_i \in (-1,+1),\quad \hat{P}_{B,i} \in (-1,+1),\quad \hat{P}_{E,i} \in (-1,+1)$$
+
+**Quote:** *"If we forced binary outputs, gradients would vanish and learning would be impossible."*
+
+---
+
+## Slide 9 — Alice vs Bob vs Eve: Same Architecture, Different Information
+**Title:** Structural Asymmetry
+
+**Three-column comparison table:**
+
+| Component | Alice (Encoder) | Bob (Decoder) | Eve (Attacker) |
+|---|---|---|---|
+| **Input** | $[P \| K]$ (32 bits) | $[C \| K]$ (32 bits) | $C$ only (16 bits) |
+| **FC layer** | $32 \rightarrow 16$ | $32 \rightarrow 16$ | $16 \rightarrow 16$ |
+| **FC parameters** | 512 | 512 | 256 |
+| **Conv layers** | 4 layers | 4 layers | 4 layers |
+| **Total parameters** | 567 | 567 | 311 |
+| **Key access** | ✅ Yes | ✅ Yes | ❌ No |
+| **Role** | Encrypt | Decrypt | Eavesdrop |
+
+**Key insight:** Eve's network has **45% fewer parameters** and sees **half the input information**. This built-in disadvantage is what forces her to struggle — the cipher must *use* the key to be secure.
+
+---
+
+## Slide 10 — The Four Training Phases
+**Title:** How Learning Unfolds — The Adversarial Dance
+
+**Visual — annotated loss curve from your seed_13 run:**
+
+```
+Reconstruction Error
+▲
+│
+│    Phase 1    Phase 2    Phase 3        Phase 4
+│      🎲         🔓         💥              🔐
+16├───────┐
+│        │
+12├        │
+│         │        Bob ────────────┐
+8├─────────── Eve ───────────────┐ │        ┌───────────
+│         │                      │ │        │
+4├─────────┘                      │ │        │
+│                                 ▼▼        ▼
+0└──────────────────────────────────────────────► Steps
+   0         5k        10k       15k        20k
+```
+
+**Phase descriptions:**
+
+| Phase | Steps | What happens | Visual signature |
+|---|---|---|---|
+| **1 — Random exploration** | 0-500 | All networks random, both errors near baseline (8 bits) | Flat start |
+| **2 — Trivial cipher** | 500-3k | Alice/Bob find simple protocol, Eve exploits it → both errors drop | Steep decline together |
+| **3 — Eve breaks it** | 3k-8k | Eve adapts, Bob's error RISES (crisis moment) | Bob spikes up |
+| **4 — Key exploitation** | 8k-20k | Alice/Bob discover key-dependent encryption, Eve pushed back to baseline | Bob down, Eve up |
+
+**Critical takeaway:** Non-monotonic convergence is **expected** — the brief rise in Bob's error (Phase 3) is actually a **positive sign** that the adversarial pressure is working!
+
+---
+
+## Slide 11 — Data: Training Without a Dataset
+**Title:** The Most Unusual Part — No Fixed Dataset
+
+**Three columns:**
+
+| 🎲 **Random Generation** | ♾️ **Infinite Variety** | 🎯 **No Labels** |
+|---|---|---|
+| Fresh (message, key) pairs every single step | 20,000 steps × 4,096 batch = **82M unique pairs** | The training signal comes purely from competition |
+| $P \sim \text{Uniform}\{-1,+1\}^{16}$ | Network never sees the same example twice | No "correct answer" to memorize |
+| $K \sim \text{Uniform}\{-1,+1\}^{16}$ | Prevents overfitting entirely | Just adversarial pressure |
+
+**Bottom insight box:**
+> This is **not** supervised learning.  
+> **Not** contrastive learning.  
+> **Not** reinforcement learning.  
+> 
+> It's **adversarial self-supervised learning** — the agents generate their own curriculum through competition.
+
+**Why this matters:** The system can't memorize training data — it must actually *learn* to encrypt.
+
+---
+
+## Slide 12 — Why NOT Contrastive Learning?
+**Title:** Could We Just Use Contrastive Learning?
+
+**Two-column deep dive:**
+
+| **Contrastive Learning** | **Adversarial Neural Crypto** |
+|---|---|
+| Pulls **similar samples** together in embedding space | Three **competing agents** with conflicting objectives |
+| Pushes **dissimilar samples** apart | Goal: learn to **encrypt and decrypt** |
+| Goal: learn good **representations** | No dataset — randomly generated data |
+| Needs a dataset (images, text, etc.) | Multi-agent adversarial game |
+| One model, no competition | Signal comes from agent competition |
+| Examples: SimCLR, CLIP, MoCo, BYOL | Not sample similarity |
+
+**Why it fundamentally can't work:**
+
+❌ **No notion of "similar" ciphertexts** — what would that even mean?
+
+❌ **Security requires a live adversary** — not a fixed distance metric
+
+❌ **Contrastive learning produces embeddings** — not encryption/decryption functions
+
+❌ **Eve needs to actively attack** — not just be a "negative sample"
+
+**Bottom line:** Both involve opposing forces, but they operate in completely different spaces — contrastive learning pushes **data points** apart, neural crypto pushes **agents** apart.
+
+---
+
+## Slide 13 — Key Experimental Results (Baseline)
+**Title:** What Actually Happens — Baseline Configuration
+
+**Two columns:**
+
+Left — **Configuration (seed 13):**
+- `--msg_size 16 --key_size 16`
+- `--loss_fn quadratic`
+- `--eve_steps 2`
+- `--steps 20000`
+- `--mode random`
+
+Right — **Results:**
+
+| Metric | Value |
+|---|---|
+| **Bob final error** | 0.56 bits (out of 16) |
+| **Eve final error** | 7.62 bits (baseline = 8.0) |
+| **Post-training Eve** | 9.04 bits (113% of baseline) |
+| **Secure runs** | 5/5 ✅ |
+| **Success rate** | ~70% across seeds |
+
+**Bottom:** Insert your actual training loss plot from seed_13 here
+
+---
+
+## Slide 14 — The Step Ratio Experiment
+**Title:** How Many Eve Steps Per Round?
+
+**Visual — bar chart comparison:**
+
+```
+Secure runs (out of 5)
+    5 ■■■■■
+    4 ■■■■
+    3 ■■■
+    2 ■■
+    1 ■
+    0 □
+      ┌───┬───┬───┬───┐
+       1   2   3   4   eve_steps
+```
+
+**Results table:**
+
+| `eve_steps` | Bob error | Eve (train) | Mean robustness | Secure runs | Verdict |
+|---|---|---|---|---|---|
+| **1** | 1.56 bits | 7.43 bits | 4.60 bits | 0/5 | ❌ Too weak — Alice/Bob never pressured |
+| **2** | 0.56 bits | 7.62 bits | 9.04 bits | 5/5 | ✅ **SWEET SPOT** |
+| **3** | 0.77 bits | 7.51 bits | 8.42 bits | 5/5 | ✅ Works, slightly less robust |
+| **4** | 1.84 bits | 7.25 bits | 6.06 bits | 0/5 | ❌ Too strong — Alice/Bob can't converge |
+
+**Counter-intuitive finding:** Both too few **and** too many Eve steps cause failure. The relationship is **non-monotonic** — `eve_steps=2` is optimal.
+
+---
+
+## Slide 15 — Attention Mechanism: Not Always Better
+**Title:** Does Self-Attention Help?
+
+**Two columns:**
+
+Left — **Architecture comparison:**
+
+| Layer | Standard | Attention-augmented |
+|---|---|---|
+| Input | [P\|K] (32) | [P\|K] (32) |
+| FC | Dense(16) | Dense(16) |
+| Conv1 | k=4, 1→2 | k=4, 1→2 |
+| Conv2 | k=2, 2→4 | k=2, 2→4 |
+| **Attention** | ❌ None | ✅ SelfAttention1D(4) + Residual + LayerNorm |
+| Conv3 | k=1, 4→4 | k=1, 4→4 |
+| Conv4 | k=1, 4→1 | k=1, 4→1 |
+
+Right — **Results (N=16):**
+
+| Metric | Standard | Attention |
+|---|---|---|
+| Bob error | 0.56 bits | 1.55 bits (worse) |
+| Eve error | 7.62 bits | 7.25 bits (worse) |
+| Robustness | 9.04 bits | 6.15 bits (worse) |
+| Secure runs | 5/5 | 0/5 ❌ |
+
+**Conclusion:** At small scale (N=16), attention **hurts** — extra parameters make optimization harder without adding useful capacity. Benefits likely emerge at larger N (64+).
+
+---
+
+## Slide 16 — ASCII Text Mode: Human-Readable Encryption
+**Title:** From Random Bits to Real Text
+
+**Two columns:**
+
+Left — **How it works:**
+- 16 bits = 2 characters per block
+- Printable ASCII codes 32-126
+- Bitwise encoding preserves {-1,+1} domain
+- Long messages chunked into blocks (like ECB mode)
+
+**Encoding example:**
+```
+"He" → [H=72, e=101] → bits → {-1,+1}^16
+```
+
+Right — **Results (seed 13):**
+
+| Metric | ASCII | Random |
+|---|---|---|
+| Bob error | 0.04 bits | 0.56 bits |
+| Eve error | 7.32 bits | 7.62 bits |
+| Robustness | 6.20 bits | 9.04 bits |
+| Secure runs | 2/5 | 5/5 |
+
+**The catch:** ASCII has **structural bias** — printable chars have MSB = 0 always. Eve gets **one free bit per block** without any cryptanalysis.
+
+**Demo output:**
+```
+Original: 'He' → Bob: 'He' ✅ → Eve: 'ia' ❌
+Original: 'Cr' → Bob: 'Cr' ✅ → Eve: 'cr' ❌
+```
+
+---
+
+## Slide 17 — Security Analysis: How Secure Is It REALLY?
+**Title:** Empirical Robustness ≠ Provable Security
+
+**Three columns with clear distinctions:**
+
+| ❌ **Not IND-CPA** | ❌ **Not Perfect Secrecy** | ✅ **Empirically Robust** |
+|---|---|---|
+| No proof against all polynomial-time adversaries | Requires key length ≥ message length | Fresh Eve retrained from scratch can't break it |
+| Only tested against neural net attackers | Key is only 16 bits (tiny!) | 5/5 secure runs in baseline |
+| Attackers use same architecture | Plaintext distribution not uniform | Mean 9.04 bits (113% of baseline) |
+| Bounded training budget (5k steps) | | Survives multiple independent attacks |
+
+**The Security Gap:**
+```
+Provable Security (IND-CPA) ←――[GAP]――→ Empirical Robustness
+     (What we WANT)                        (What we HAVE)
+```
+
+**What the gap means:**
+- A more powerful attacker (transformer, non-neural, more steps) might break it
+- No mathematical proof — only experimental evidence
+- This is the **central open problem** in the field
+
+**Bottom line:** Neural crypto is a **proof of concept**, not a replacement for AES.
+
+---
+
+## Slide 18 — Quantum Resistance?
+**Title:** Does Neural Crypto Resist Quantum Attacks?
+
+**Two columns:**
+
+Left — **The quantum threat to classical crypto:**
+- **RSA/ECC** → broken by **Shor's algorithm** (polynomial time)
+- **AES-128** → weakened by **Grover's algorithm** (√2¹²⁸ → 2⁶⁴ operations)
+- "Harvest now, decrypt later" — encrypted data today may be broken tomorrow
+
+Right — **Neural crypto's position:**
+- Has **no mathematical hardness assumption** (no factoring, no discrete log)
+- Shor's algorithm has nothing to factor
+- Security basis is the **complexity of the learned function**
+- **Not proven quantum-resistant** — but fundamentally different attack surface
+
+**Cautious conclusion:**
+> Neural cryptography is not **designed** to be quantum-resistant, but it doesn't rely on the assumptions that quantum computers break. Whether it can resist quantum attackers is an **open question** — and a fascinating one.
+
+---
+
+## Slide 19 — Critical Takeaways
+**Title:** What Three Years of Research Taught Me
+
+**Four key insights in a 2×2 grid:**
+
+| 🎯 **Loss design matters enormously** | ⚖️ **Step ratio is a delicate balance** |
+|---|---|
+| Quadratic loss is essential. BCE collapses completely. Linear looks "secure" but is actually anti-correlated — a deceptive result. | `eve_steps=2` is optimal. Too few: no pressure. Too many: can't converge. Non-monotonic relationship. |
+
+| 👁️ **Attention isn't always better** | 🔤 **Real data reveals real weaknesses** |
+|---|---|
+| At N=16, attention hurts — more parameters make optimization harder. Benefits likely at larger scales. | ASCII mode works but is less robust due to MSB bias. The gap between theory and practice appears immediately with real data. |
+
+**Bottom reflection:**
+> The paper's results replicate — but the enhanced implementation reveals how **brittle** the system really is. Small changes in loss, step ratio, or architecture produce dramatically different outcomes. This is not a production-ready system — it's a **research tool** for understanding adversarial dynamics.
+
+---
+
+## Slide 20 — Open Problems
+**Title:** The Road Ahead
+
+**Five unsolved challenges:**
+
+| Problem | Why it matters |
+|---|---|
+| **1. Scaling to larger N** | 16 bits is toy-scale. Can we reach 64, 128 bits? |
+| **2. Formal security proofs** | Can we connect neural robustness to standard assumptions? |
+| **3. CBC/CTR mode analogues** | Current chunking = ECB mode (leaks structure) |
+| **4. Public-key neural crypto** | Can we learn asymmetric encryption? |
+| **5. Ensemble adversaries** | Would multiple Eves during training improve robustness? |
+
+**Provocative question:**
+> *Is this a dead end, or the beginning of something new?*
+
+---
+
+## Slide 21 — Conclusion
+**Title:** What This Project Demonstrates
+
+**Three large, centered points:**
+
+🔐 **1. Neural networks CAN learn to keep secrets**
+> From scratch, without any cryptographic knowledge, using only adversarial pressure — encryption emerges spontaneously.
+
+⚡ **2. The training objective is everything**
+> Loss design, step ratios, architecture details — small changes produce dramatically different outcomes. Quadratic loss with `eve_steps=2` is the sweet spot.
+
+🔬 **3. The gap between empirical and provable security is THE open problem**
+> We can show it works in practice. We cannot prove it works in theory. Closing this gap would be a major breakthrough.
+
+**Final quote (from your report):**
+> *"Neural networks can learn to keep secrets. But learning to keep them provably — against all possible adversaries — remains an open and profound challenge."*
+
+---
+
+## Slide 22 — Thank You / Q&A
+
+**Your Name**  
+INSAT · Networks & Telecommunications
+
+**Contact:** email@example.com · GitHub: @username · LinkedIn: /in/yourname
+
+**Project links:**
+- 📁 GitHub repository
+- 📄 Full theoretical report (72 pages)
+- 📊 Experimental results and plots
+
+**Built with:** TensorFlow 2.x · Keras · NumPy · Matplotlib
+
+**Based on:** Abadi & Andersen (2016) — "Learning to Protect Communications with Neural Cryptography"
+
+---
+
+**One-line summary:**
+> *Adversarial neural cryptography: where neural networks learn encryption by playing a game — and sometimes win.*
+
+---
+
+## Design tips for Canva:
+
+1. **Color scheme:** Dark navy `#1A3A5C` for headings, soft gray `#F5F7FA` for backgrounds, one accent color (e.g., `#E74C3C` for Bob, `#27AE60` for Eve)
+
+2. **Fonts:** Sans-serif for readability — Montserrat or Lato for headings, Open Sans for body text
+
+3. **Use your actual plots** from seed_13 on slides 10 and 13
+
+4. **Slide 7 (architecture)** should be a visual diagram, not just text — draw the boxes with arrows
+
+5. **Slides 3 and 21** should be minimal, high-impact — just the quote on a clean background
+
+6. **Add subtle animations** for progressive reveals on complex slides (architecture, four phases)
+
+7. **Include a QR code** on the last slide linking to your GitHub repo
