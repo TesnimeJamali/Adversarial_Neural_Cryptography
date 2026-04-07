@@ -14,6 +14,7 @@
      6. Loss function variants: quadratic (original), linear, binary-cross-entropy
      7. Attention mechanism option in the architecture
      8. Live loss curve plotting (matplotlib)
+     9. Selective protection (Section 3): learn WHAT to encrypt (A,B,C,D dataset, Blind Eve)
 =============================================================================
 """
 
@@ -56,8 +57,12 @@ def get_args():
     p.add_argument("--attention",   action="store_true",
                    help="Add self-attention layer to the architecture")
     p.add_argument("--mode",        type=str,   default="random",
-                   choices=["random", "ascii"],
+                   choices=["random", "ascii", "selective"],
                    help="Message type  (default: random)")
+    p.add_argument("--corr",         type=float, default=0.5,
+                   help="Pairwise correlation between A,B,C,D in selective mode (default: 0.5)")
+    p.add_argument("--sel_steps",    type=int,   default=500000,
+                   help="Training steps for selective mode (default: 500000, as per paper)")
     p.add_argument("--eve_retrain", type=int,   default=5,
                    help="Number of Eve retraining runs after convergence  (default: 5)")
     p.add_argument("--eve_retrain_steps", type=int, default=5000,
@@ -318,6 +323,473 @@ class AttackerNet(keras.Model):
         return net
 
 
+
+# ─────────────────────────────────────────────────────────────────────────────
+# SECTION 3 — SELECTIVE PROTECTION  (Abadi & Andersen 2016, §3)
+# ─────────────────────────────────────────────────────────────────────────────
+# Notation follows the paper exactly:
+#   A, B, C  — input attributes (Alice receives all three + key K)
+#   D        — target value correlated with A,B,C
+#   D_public — Alice's public estimate of D (released without encryption)
+#   cipher   — encrypted payload (Alice also outputs this, Bob decrypts)
+#   Eve      — tries to recover C from (cipher, D_public)
+#   Blind Eve— baseline attacker who only knows the distribution of C
+#
+# Alice outputs TWO things: (D_public, cipher)
+# Bob  outputs: improved D estimate using (cipher, D_public, K)
+# Eve  outputs: estimate of C using (cipher, D_public)        [no key]
+# ─────────────────────────────────────────────────────────────────────────────
+
+def build_correlation_matrix(corr: float) -> np.ndarray:
+    """
+    Build a 4x4 correlation matrix for (A, B, C, D) with uniform
+    pairwise correlation `corr` (off-diagonal entries).
+    The paper does not publish exact values; corr=0.5 is a reasonable default.
+    """
+    mat = np.full((4, 4), corr, dtype=np.float64)
+    np.fill_diagonal(mat, 1.0)
+    return mat
+
+
+def selective_batch(batch_size: int, corr: float):
+    """
+    Generate a correlated batch of (A, B, C, D) values.
+
+    Uses Cholesky decomposition of the correlation matrix exactly as
+    described in Abadi & Andersen (2016), Section 3.1:
+        - Compute L s.t. LL* = Sigma
+        - Sample z ~ N(0, I_4)
+        - x = L @ z  →  (A, B, C, D) are jointly Gaussian with given correlations
+
+    Returns:
+        abcd : (batch_size, 4)  float32 — correlated normal values
+        key  : (batch_size, 8)  float32 — random {-1,+1} key (8 bits as in paper)
+    """
+    Sigma = build_correlation_matrix(corr)
+    L = np.linalg.cholesky(Sigma).astype(np.float32)      # (4, 4)
+    z = tf.random.normal([batch_size, 4])                  # (B, 4)
+    abcd = tf.matmul(z, tf.constant(L.T))                  # (B, 4)
+    # 8-bit key: the paper uses 8 key bits for selective mode
+    key  = tf.cast(
+        2 * tf.random.uniform([batch_size, 8], 0, 2, dtype=tf.int32) - 1,
+        tf.float32
+    )
+    return abcd, key
+
+
+class AugmentedCipherNet(keras.Model):
+    """
+    Augmented Mix-and-Transform network for selective protection (§3.2).
+
+    Architecture (as described in paper Section 3.2):
+      Extra FC layer  (12 inputs: 8 key bits + 4 values → 12 outputs)
+      → standard Mix-and-Transform block (same as CipherNet)
+
+    Alice receives [A, B, C, K] (12 inputs) and produces:
+      - D_public : scalar public estimate of D  (does NOT need to hide C)
+      - cipher   : encrypted payload Bob can decrypt with K
+
+    Bob receives [D_public, cipher, K] and produces improved D estimate.
+    Eve receives [D_public, cipher] (no key) and tries to recover C.
+
+    We implement Alice as outputting a 2-element vector:
+      output[0] = D_public   (always visible)
+      output[1] = cipher     (encrypted scalar)
+    Bob and Eve take a combined input and output a scalar D estimate / C estimate.
+    """
+    def __init__(self, input_size: int, output_size: int, name: str = "aug_cipher"):
+        super().__init__(name=name)
+        # Extra FC layer prepended (paper §3.2: "12 inputs, 12 outputs")
+        self.fc_aug  = keras.layers.Dense(input_size, activation="sigmoid", use_bias=True)
+        # Standard Mix-and-Transform layers
+        self.fc      = keras.layers.Dense(output_size, use_bias=False)
+        self.conv1   = keras.layers.Conv1D(2, 4, strides=1, padding="same", activation="sigmoid")
+        self.conv2   = keras.layers.Conv1D(4, 2, strides=1, padding="same", activation="sigmoid")
+        self.conv3   = keras.layers.Conv1D(4, 1, strides=1, padding="same", activation="sigmoid")
+        self.conv4   = keras.layers.Conv1D(1, 1, strides=1, padding="same", activation="tanh")
+
+    def call(self, x, training=False):
+        net = self.fc_aug(x)                      # augmented FC layer (paper §3.2)
+        net = self.fc(net)                        # global mixing FC
+        net = tf.expand_dims(net, axis=-1)        # (B, N, 1)
+        net = self.conv1(net)                     # (B, N, 2)
+        net = self.conv2(net)                     # (B, N, 4)
+        net = self.conv3(net)                     # (B, N, 4)
+        net = self.conv4(net)                     # (B, N, 1)
+        net = tf.squeeze(net, axis=-1)            # (B, N)
+        return net
+
+
+def selective_alice_bob_loss(
+    D_true, D_public, D_bob,
+    C_true, C_eve,
+    lambda_cov: float = 1.0
+):
+    """
+    Alice & Bob's loss for selective protection (paper §3.2).
+
+    Three terms (linear combination as in paper):
+      1. Squared error of D_public  vs D_true   — public estimate quality
+      2. Squared error of D_bob     vs D_true   — Bob's improved estimate quality
+      3. |Cov(Eve_C_estimate, C_true)|          — penalise information leakage about C
+
+    The covariance term is computed batch-wise (paper §3.2):
+      "we compute this covariance on a batch of training examples"
+
+    Args:
+        D_true    : (B,)  true D values
+        D_public  : (B,)  Alice's public D estimate
+        D_bob     : (B,)  Bob's improved D estimate
+        C_true    : (B,)  true C values (what Eve should NOT learn)
+        C_eve     : (B,)  Eve's estimate of C
+        lambda_cov: weight for the covariance penalty
+    Returns:
+        scalar loss
+    """
+    # Term 1: public D estimate quality
+    loss_public = tf.reduce_mean(tf.square(D_true - D_public))
+    # Term 2: Bob's improved D estimate quality
+    loss_bob    = tf.reduce_mean(tf.square(D_true - D_bob))
+    # Term 3: covariance penalty — |Cov(C_eve, C_true)|
+    C_eve_mean   = tf.reduce_mean(C_eve)
+    C_true_mean  = tf.reduce_mean(C_true)
+    cov = tf.reduce_mean((C_eve - C_eve_mean) * (C_true - C_true_mean))
+    loss_cov = tf.abs(cov)
+    return loss_public + loss_bob + lambda_cov * loss_cov
+
+
+def selective_eve_loss(C_true, C_eve):
+    """
+    Eve's loss: minimise squared reconstruction error of C.
+    Paper §3.2: "train Eve with the goal of minimizing the squared error
+    of its estimate of C."
+    """
+    return tf.reduce_mean(tf.square(C_true - C_eve))
+
+
+@tf.function
+def train_selective_ab(alice, bob, eve, abcd, key):
+    """
+    One Alice+Bob training step for selective mode.
+
+    Forward pass:
+      alice_input = [A, B, C, K]  (12-dim)
+      alice_out   = [D_public, cipher]  (2-dim output)
+      bob_input   = [D_public, cipher, K]  (10-dim)
+      bob_out     = D_bob  (scalar)
+      eve_input   = [D_public, cipher]  (2-dim, no key)
+      eve_out     = C_est  (scalar)
+    """
+    A = abcd[:, 0:1]
+    B = abcd[:, 1:2]
+    C = abcd[:, 2:3]
+    D = abcd[:, 3:4]
+
+    opt_ab = tf.keras.optimizers.get(alice.optimizer) if hasattr(alice, "optimizer") else None
+
+    with tf.GradientTape() as tape:
+        # Alice: receives [A,B,C,K], outputs 2 values [D_public, cipher]
+        alice_in  = tf.concat([A, B, C, key], axis=1)    # (B, 12)
+        alice_out = alice(alice_in)                        # (B, 2)
+        D_public  = alice_out[:, 0:1]                     # (B, 1)
+        cipher    = alice_out[:, 1:2]                     # (B, 1)
+
+        # Bob: receives [D_public, cipher, K], outputs scalar D estimate
+        bob_in  = tf.concat([D_public, cipher, key], axis=1)  # (B, 10)
+        bob_out = bob(bob_in)                                   # (B, 2) → use [:, 0]
+        D_bob   = bob_out[:, 0:1]                              # (B, 1)
+
+        # Eve: receives [D_public, cipher], outputs C estimate (no key)
+        eve_in  = tf.concat([D_public, cipher], axis=1)       # (B, 2)
+        eve_out = eve(eve_in)                                   # (B, 2) → use [:, 0]
+        C_eve   = eve_out[:, 0:1]                              # (B, 1)
+
+        loss = selective_alice_bob_loss(
+            D[:, 0], D_public[:, 0], D_bob[:, 0],
+            C[:, 0], C_eve[:, 0]
+        )
+
+    grads = tape.gradient(loss, alice.trainable_variables + bob.trainable_variables)
+    return loss, D_public, D_bob, C_eve, cipher
+
+
+@tf.function
+def train_selective_eve(alice, eve, abcd, key):
+    """
+    One Eve training step for selective mode.
+    Eve sees [D_public, cipher] and tries to recover C.
+    """
+    A = abcd[:, 0:1]
+    B = abcd[:, 1:2]
+    C = abcd[:, 2:3]
+
+    with tf.GradientTape() as tape:
+        alice_in  = tf.concat([A, B, C, key], axis=1)
+        alice_out = alice(alice_in)
+        D_public  = alice_out[:, 0:1]
+        cipher    = alice_out[:, 1:2]
+        eve_in    = tf.concat([D_public, cipher], axis=1)
+        eve_out   = eve(eve_in)
+        C_eve     = eve_out[:, 0:1]
+        loss      = selective_eve_loss(C[:, 0], C_eve[:, 0])
+
+    grads = tape.gradient(loss, eve.trainable_variables)
+    return loss, C_eve
+
+
+def save_selective_plots(history, args):
+    """
+    Two plots for selective mode:
+      1. Loss curves: D_public error, Bob D error, Eve C squared error over steps
+      2. Eve vs Blind Eve advantage over steps
+    """
+    sel_plot_dir = os.path.join(args.plot_dir, "selective")
+    os.makedirs(sel_plot_dir, exist_ok=True)
+
+    steps        = history["steps"]
+    d_public_err = history["d_public_err"]
+    d_bob_err    = history["d_bob_err"]
+    eve_c_err    = history["eve_c_err"]
+    blind_err    = history["blind_eve_err"]
+    eve_adv      = history["eve_advantage"]
+
+    # ── Plot 1: loss curves ────────────────────────────────────────────────
+    fig, ax = plt.subplots(figsize=(10, 5))
+    ax.plot(steps, d_public_err, color="#3498DB", linewidth=1.5, label="D_public error (Alice public estimate)")
+    ax.plot(steps, d_bob_err,    color="#27AE60", linewidth=1.5, label="D_bob error (Bob improved estimate)")
+    ax.plot(steps, eve_c_err,    color="#E74C3C", linewidth=1.5, label="Eve C squared error")
+    ax.set_xlabel("Training Step", fontsize=12)
+    ax.set_ylabel("Mean Squared Error", fontsize=12)
+    ax.set_title(
+        "Selective Protection — Section 3 (Abadi & Andersen 2016)\n"
+        f"Correlation: {args.corr}  |  Eve steps/round: {args.eve_steps}  |  Seed: {args.seed}",
+        fontsize=11
+    )
+    ax.legend(fontsize=10)
+    ax.grid(True, alpha=0.3)
+    path1 = os.path.join(sel_plot_dir, "selective_loss_curves.png")
+    plt.tight_layout()
+    plt.savefig(path1, dpi=150)
+    plt.close()
+    print(f"[Plot] Selective loss curves → {path1}")
+
+    # ── Plot 2: Eve vs Blind Eve advantage ────────────────────────────────
+    fig, ax = plt.subplots(figsize=(10, 5))
+    ax.plot(steps, blind_err, color="#95A5A6", linewidth=1.5,
+            linestyle="--", label="Blind Eve baseline (distribution only)")
+    ax.plot(steps, eve_c_err, color="#E74C3C", linewidth=1.5,
+            label="Real Eve (sees D_public + cipher)")
+    ax.fill_between(steps, eve_c_err, blind_err,
+                    where=[e < b for e, b in zip(eve_c_err, blind_err)],
+                    alpha=0.2, color="#E74C3C", label="Eve advantage over Blind Eve")
+    ax.axhline(0, color="black", linewidth=0.5)
+    ax.set_xlabel("Training Step", fontsize=12)
+    ax.set_ylabel("C Reconstruction Squared Error", fontsize=12)
+    ax.set_title(
+        "Eve vs Blind Eve — Information Leakage About C\n"
+        "Goal: Real Eve should converge to Blind Eve baseline (zero advantage)",
+        fontsize=11
+    )
+    ax.legend(fontsize=10)
+    ax.grid(True, alpha=0.3)
+    path2 = os.path.join(sel_plot_dir, "eve_vs_blind_eve.png")
+    plt.tight_layout()
+    plt.savefig(path2, dpi=150)
+    plt.close()
+    print(f"[Plot] Eve vs Blind Eve → {path2}")
+
+
+def run_selective_mode(args):
+    """
+    Full training loop for selective protection (Section 3).
+
+    Network dimensions (matching paper §3.2):
+      - Alice input : [A, B, C, K] = 4 values + 8 key bits = 12
+      - Alice output: [D_public, cipher]  → output_size = 2
+      - Bob input   : [D_public, cipher, K] = 2 + 8 = 10
+      - Bob output  : [D_bob, _]  → use first element
+      - Eve input   : [D_public, cipher] = 2  (no key)
+      - Eve output  : [C_est, _]  → use first element
+    """
+    print("\n" + "="*60)
+    print("  SELECTIVE PROTECTION — Section 3 (Abadi & Andersen 2016)")
+    print("="*60)
+    print(f"  Correlation (A,B,C,D): {args.corr}")
+    print(f"  Training steps       : {args.sel_steps}")
+    print(f"  Eve steps/round      : {args.eve_steps}")
+    print(f"  Batch size           : {args.batch_size}")
+    print(f"  Learning rate        : {args.lr}")
+    print(f"  Seed                 : {args.seed}")
+    print("="*60 + "\n")
+
+    tf.random.set_seed(args.seed)
+    np.random.seed(args.seed)
+
+    sel_ckpt_dir = os.path.join(args.save_dir, "selective")
+    os.makedirs(sel_ckpt_dir, exist_ok=True)
+
+    # ── Build networks ───────────────────────────────────────────────────────
+    # Alice: 12 inputs → 2 outputs [D_public, cipher]
+    alice_sel = AugmentedCipherNet(input_size=12, output_size=2, name="alice_selective")
+    # Bob  : 10 inputs → 2 outputs (use first as D_bob)
+    bob_sel   = AugmentedCipherNet(input_size=10, output_size=2, name="bob_selective")
+    # Eve  : 2 inputs  → 2 outputs (use first as C_est)
+    eve_sel   = AugmentedCipherNet(input_size=2,  output_size=2, name="eve_selective")
+
+    opt_ab  = keras.optimizers.Adam(args.lr)
+    opt_eve = keras.optimizers.Adam(args.lr)
+
+    # ── Warm-up forward pass to build weights ────────────────────────────────
+    abcd_d, key_d = selective_batch(args.batch_size, args.corr)
+    A_d = abcd_d[:, 0:1]; B_d = abcd_d[:, 1:2]; C_d = abcd_d[:, 2:3]
+    _ = alice_sel(tf.concat([A_d, B_d, C_d, key_d], axis=1))
+    alice_out_d = alice_sel(tf.concat([A_d, B_d, C_d, key_d], axis=1))
+    Dp_d = alice_out_d[:, 0:1]; cip_d = alice_out_d[:, 1:2]
+    _ = bob_sel(tf.concat([Dp_d, cip_d, key_d], axis=1))
+    _ = eve_sel(tf.concat([Dp_d, cip_d], axis=1))
+
+    # ── Load checkpoint if requested ─────────────────────────────────────────
+    if args.load:
+        for model, name in [(alice_sel, "alice_sel"), (bob_sel, "bob_sel"), (eve_sel, "eve_sel")]:
+            path = os.path.join(sel_ckpt_dir, f"{name}_final.weights.h5")
+            if os.path.exists(path):
+                model.load_weights(path)
+                print(f"[Load] {name} ← {path}")
+
+    # ── Blind Eve baseline — knows only C distribution (mean squared error
+    #    from always predicting 0, since C ~ N(0,1)) ────────────────────────
+    # E[C^2] = Var(C) + mean(C)^2 = 1 + 0 = 1.0  for standard normal C
+    blind_eve_baseline = 1.0
+
+    # ── Training history ─────────────────────────────────────────────────────
+    history = {
+        "steps": [], "d_public_err": [], "d_bob_err": [],
+        "eve_c_err": [], "blind_eve_err": [], "eve_advantage": [],
+        "ab_loss": [], "eve_loss": []
+    }
+
+    log_every = max(args.log_every, 1000)   # selective mode logs less often
+    steps = args.sel_steps
+
+    print(f"Training for {steps} steps  (Alice/Bob : Eve = 1 : {args.eve_steps}) ...\n")
+
+    for step in range(steps):
+
+        abcd, key = selective_batch(args.batch_size, args.corr)
+        A = abcd[:, 0:1]; B = abcd[:, 1:2]; C = abcd[:, 2:3]; D = abcd[:, 3:4]
+
+        # ── Alice+Bob step ───────────────────────────────────────────────────
+        with tf.GradientTape() as tape:
+            alice_in  = tf.concat([A, B, C, key], axis=1)
+            alice_out = alice_sel(alice_in)
+            D_public  = alice_out[:, 0:1]
+            cipher    = alice_out[:, 1:2]
+            bob_in    = tf.concat([D_public, cipher, key], axis=1)
+            bob_out   = bob_sel(bob_in)
+            D_bob     = bob_out[:, 0:1]
+            eve_in    = tf.concat([D_public, cipher], axis=1)
+            eve_out   = eve_sel(eve_in)
+            C_eve     = eve_out[:, 0:1]
+            ab_loss   = selective_alice_bob_loss(
+                D[:, 0], D_public[:, 0], D_bob[:, 0], C[:, 0], C_eve[:, 0]
+            )
+        grads_ab = tape.gradient(ab_loss, alice_sel.trainable_variables + bob_sel.trainable_variables)
+        opt_ab.apply_gradients(zip(grads_ab, alice_sel.trainable_variables + bob_sel.trainable_variables))
+
+        # ── Eve step(s) ──────────────────────────────────────────────────────
+        for _ in range(args.eve_steps):
+            abcd_e, key_e = selective_batch(args.batch_size, args.corr)
+            A_e = abcd_e[:, 0:1]; B_e = abcd_e[:, 1:2]; C_e = abcd_e[:, 2:3]
+            with tf.GradientTape() as tape_e:
+                alice_in_e  = tf.concat([A_e, B_e, C_e, key_e], axis=1)
+                alice_out_e = alice_sel(alice_in_e)
+                Dp_e  = alice_out_e[:, 0:1]
+                cip_e = alice_out_e[:, 1:2]
+                eve_in_e  = tf.concat([Dp_e, cip_e], axis=1)
+                eve_out_e = eve_sel(eve_in_e)
+                C_eve_e   = eve_out_e[:, 0:1]
+                eve_loss_val = selective_eve_loss(C_e[:, 0], C_eve_e[:, 0])
+            grads_e = tape_e.gradient(eve_loss_val, eve_sel.trainable_variables)
+            opt_eve.apply_gradients(zip(grads_e, eve_sel.trainable_variables))
+
+        # ── Logging ──────────────────────────────────────────────────────────
+        if step % log_every == 0:
+            d_pub_err = float(tf.reduce_mean(tf.square(D[:, 0] - D_public[:, 0])).numpy())
+            d_bob_err = float(tf.reduce_mean(tf.square(D[:, 0] - D_bob[:, 0])).numpy())
+            c_eve_err = float(tf.reduce_mean(tf.square(C[:, 0] - C_eve[:, 0])).numpy())
+            eve_adv   = max(0.0, blind_eve_baseline - c_eve_err)
+
+            history["steps"].append(step)
+            history["d_public_err"].append(d_pub_err)
+            history["d_bob_err"].append(d_bob_err)
+            history["eve_c_err"].append(c_eve_err)
+            history["blind_eve_err"].append(blind_eve_baseline)
+            history["eve_advantage"].append(eve_adv)
+            history["ab_loss"].append(float(ab_loss.numpy()))
+            history["eve_loss"].append(float(eve_loss_val.numpy()))
+
+            status = "✅ PRIVATE" if c_eve_err >= blind_eve_baseline * 0.95 else "⚠️  LEAKING"
+            print(f"Step {step:7d}  |  D_public: {d_pub_err:.4f}  "
+                  f"D_bob: {d_bob_err:.4f}  "
+                  f"Eve_C: {c_eve_err:.4f}  "
+                  f"BlindEve: {blind_eve_baseline:.4f}  "
+                  f"Adv: {eve_adv:.4f}  |  {status}")
+
+        # ── Periodic checkpoint ───────────────────────────────────────────────
+        if step > 0 and step % 50000 == 0:
+            for model, name in [(alice_sel, "alice_sel"), (bob_sel, "bob_sel"), (eve_sel, "eve_sel")]:
+                model.save_weights(os.path.join(sel_ckpt_dir, f"{name}_step{step}.weights.h5"))
+            print(f"[Save] Selective checkpoint at step {step} → {sel_ckpt_dir}")
+
+    # ── Final checkpoint ──────────────────────────────────────────────────────
+    for model, name in [(alice_sel, "alice_sel"), (bob_sel, "bob_sel"), (eve_sel, "eve_sel")]:
+        model.save_weights(os.path.join(sel_ckpt_dir, f"{name}_final.weights.h5"))
+    print(f"[Save] Selective final models → {sel_ckpt_dir}")
+
+    # ── Plots ─────────────────────────────────────────────────────────────────
+    save_selective_plots(history, args)
+
+    # ── Final metrics ─────────────────────────────────────────────────────────
+    final_d_pub = history["d_public_err"][-1]
+    final_d_bob = history["d_bob_err"][-1]
+    final_c_eve = history["eve_c_err"][-1]
+    final_adv   = history["eve_advantage"][-1]
+    success = final_c_eve >= blind_eve_baseline * 0.95
+
+    print("\n" + "="*60)
+    print("  SELECTIVE PROTECTION — FINAL RESULTS")
+    print("="*60)
+    print(f"  D_public error (public estimate)  : {final_d_pub:.4f}")
+    print(f"  D_bob error   (Bob's estimate)    : {final_d_bob:.4f}")
+    print(f"  Eve C error                       : {final_c_eve:.4f}")
+    print(f"  Blind Eve baseline                : {blind_eve_baseline:.4f}")
+    print(f"  Eve advantage over Blind Eve      : {final_adv:.4f}")
+    print(f"  Privacy achieved                  : {'✅ YES' if success else '❌ NO'}")
+    print("="*60)
+
+    # ── Save JSON results ─────────────────────────────────────────────────────
+    import json
+    results = {
+        "mode": "selective",
+        "corr": args.corr,
+        "sel_steps": args.sel_steps,
+        "eve_steps": args.eve_steps,
+        "seed": args.seed,
+        "final_d_public_err": final_d_pub,
+        "final_d_bob_err": final_d_bob,
+        "final_eve_c_err": final_c_eve,
+        "blind_eve_baseline": blind_eve_baseline,
+        "eve_advantage": final_adv,
+        "privacy_achieved": success
+    }
+    json_path = os.path.join(args.plot_dir, "selective", "selective_results.json")
+    with open(json_path, "w") as jf:
+        json.dump(results, jf, indent=2)
+    print(f"[Results] JSON saved → {json_path}")
+
+    return results
+
+
 # ─────────────────────────────────────────────────────────────────────────────
 # TRAINING  STEP  (tf.function for speed)
 # ─────────────────────────────────────────────────────────────────────────────
@@ -575,6 +1047,10 @@ def main():
     opt_eve = keras.optimizers.Adam(args.lr)
 
     # ── Data function ────────────────────────────────────────────────────────
+    if args.mode == "selective":
+        run_selective_mode(args)
+        return
+
     if args.mode == "random":
         def data_fn():
             return random_batch(args.batch_size, args.msg_size, args.key_size)
