@@ -736,7 +736,7 @@ def run_selective_mode(args):
                   f"Adv: {eve_adv:.4f}  |  {status}")
 
         # ── Periodic checkpoint ───────────────────────────────────────────────
-        if step > 0 and step % 50000 == 0:
+        if step > 0 and step % 10000 == 0:
             for model, name in [(alice_sel, "alice_sel"), (bob_sel, "bob_sel"), (eve_sel, "eve_sel")]:
                 model.save_weights(os.path.join(sel_ckpt_dir, f"{name}_step{step}.weights.h5"))
             print(f"[Save] Selective checkpoint at step {step} → {sel_ckpt_dir}")
