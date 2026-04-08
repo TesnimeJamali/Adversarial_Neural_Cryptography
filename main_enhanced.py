@@ -27,7 +27,7 @@ import matplotlib
 matplotlib.use("Agg")          # non-interactive backend — safe on all platforms
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
-
+import json
 # ─────────────────────────────────────────────────────────────────────────────
 # CLI  ARGUMENTS
 # ─────────────────────────────────────────────────────────────────────────────
@@ -468,7 +468,7 @@ def selective_eve_loss(C_true, C_eve):
 
 
 @tf.function
-def train_selective_ab(alice, bob, eve, abcd, key):
+def train_selective_ab(alice, bob, eve, abcd, key, optimizer_ab):
     """
     One Alice+Bob training step for selective mode.
 
@@ -484,8 +484,6 @@ def train_selective_ab(alice, bob, eve, abcd, key):
     B = abcd[:, 1:2]
     C = abcd[:, 2:3]
     D = abcd[:, 3:4]
-
-    opt_ab = tf.keras.optimizers.get(alice.optimizer) if hasattr(alice, "optimizer") else None
 
     with tf.GradientTape() as tape:
         # Alice: receives [A,B,C,K], outputs 2 values [D_public, cipher]
@@ -510,11 +508,14 @@ def train_selective_ab(alice, bob, eve, abcd, key):
         )
 
     grads = tape.gradient(loss, alice.trainable_variables + bob.trainable_variables)
+    optimizer_ab.apply_gradients(
+        zip(grads, alice.trainable_variables + bob.trainable_variables)
+    )
     return loss, D_public, D_bob, C_eve, cipher
 
 
 @tf.function
-def train_selective_eve(alice, eve, abcd, key):
+def train_selective_eve(alice, eve, abcd, key, optimizer_eve):
     """
     One Eve training step for selective mode.
     Eve sees [D_public, cipher] and tries to recover C.
@@ -534,6 +535,7 @@ def train_selective_eve(alice, eve, abcd, key):
         loss      = selective_eve_loss(C[:, 0], C_eve[:, 0])
 
     grads = tape.gradient(loss, eve.trainable_variables)
+    optimizer_eve.apply_gradients(zip(grads, eve.trainable_variables))
     return loss, C_eve
 
 
@@ -649,12 +651,51 @@ def run_selective_mode(args):
     _ = eve_sel(tf.concat([Dp_d, cip_d], axis=1))
 
     # ── Load checkpoint if requested ─────────────────────────────────────────
+    
+   #     for model, name in [(alice_sel, "alice_sel"), (bob_sel, "bob_sel"), (eve_sel, "eve_sel")]:
+   #         path = os.path.join(sel_ckpt_dir, f"{name}_final.weights.h5")
+     #       if os.path.exists(path):
+    #            model.load_weights(path)
+      #          print(f"[Load] {name} ← {path}")
+                
+                
+                
+                
+                
+    # ── Load checkpoint if requested ─────────────────────────────────────────
+    start_step = 0
     if args.load:
-        for model, name in [(alice_sel, "alice_sel"), (bob_sel, "bob_sel"), (eve_sel, "eve_sel")]:
-            path = os.path.join(sel_ckpt_dir, f"{name}_final.weights.h5")
-            if os.path.exists(path):
-                model.load_weights(path)
-                print(f"[Load] {name} ← {path}")
+        import glob
+        import re
+        
+        # Find the latest step checkpoint
+        search_pattern = os.path.join(sel_ckpt_dir, "alice_sel_step*.weights.h5")
+        checkpoints = glob.glob(search_pattern)
+        
+        if checkpoints:
+            step_nums = [int(re.search(r'_step(\d+)', ckpt).group(1)) for ckpt in checkpoints if re.search(r'_step(\d+)', ckpt)]
+            if step_nums:
+                start_step = max(step_nums)
+
+        if start_step > 0:
+            for model, name in [(alice_sel, "alice_sel"), (bob_sel, "bob_sel"), (eve_sel, "eve_sel")]:
+                path = os.path.join(sel_ckpt_dir, f"{name}_step{start_step}.weights.h5")
+                if os.path.exists(path):
+                    model.load_weights(path)
+                    print(f"[Load] Resuming {name} from step {start_step} ← {path}")
+        else:
+            # Fallback to final if no step checkpoints exist
+            for model, name in [(alice_sel, "alice_sel"), (bob_sel, "bob_sel"), (eve_sel, "eve_sel")]:
+                path = os.path.join(sel_ckpt_dir, f"{name}_final.weights.h5")
+                if os.path.exists(path):
+                    model.load_weights(path)
+                    print(f"[Load] {name} ← {path}")    
+                
+                
+                
+                
+                
+                
 
     # ── Blind Eve baseline — knows only C distribution (mean squared error
     #    from always predicting 0, since C ~ N(0,1)) ────────────────────────
@@ -668,12 +709,18 @@ def run_selective_mode(args):
         "ab_loss": [], "eve_loss": []
     }
 
+    # Load existing history if resuming
+    if args.load and start_step > 0:
+        loaded_history = load_selective_history(sel_ckpt_dir)
+        if loaded_history:
+            history = loaded_history
+            print(f"[Resume] Continuing with existing history ({len(history['steps'])} steps recorded)")
+
     log_every = max(args.log_every, 1000)   # selective mode logs less often
     steps = args.sel_steps
 
-    print(f"Training for {steps} steps  (Alice/Bob : Eve = 1 : {args.eve_steps}) ...\n")
-
-    for step in range(steps):
+    print(f"Training for {steps} steps (Resuming from {start_step}) (Alice/Bob : Eve = 1 : {args.eve_steps}) ...\n")
+    for step in range(start_step, steps):   
 
         abcd, key = selective_batch(args.batch_size, args.corr)
         A = abcd[:, 0:1]; B = abcd[:, 1:2]; C = abcd[:, 2:3]; D = abcd[:, 3:4]
@@ -713,6 +760,7 @@ def run_selective_mode(args):
             opt_eve.apply_gradients(zip(grads_e, eve_sel.trainable_variables))
 
         # ── Logging ──────────────────────────────────────────────────────────
+
         if step % log_every == 0:
             d_pub_err = float(tf.reduce_mean(tf.square(D[:, 0] - D_public[:, 0])).numpy())
             d_bob_err = float(tf.reduce_mean(tf.square(D[:, 0] - D_bob[:, 0])).numpy())
@@ -728,6 +776,9 @@ def run_selective_mode(args):
             history["ab_loss"].append(float(ab_loss.numpy()))
             history["eve_loss"].append(float(eve_loss_val.numpy()))
 
+            # Save history after each log (for resilience)
+            save_selective_history(history, sel_ckpt_dir)
+            
             status = "✅ PRIVATE" if c_eve_err >= blind_eve_baseline * 0.95 else "⚠️  LEAKING"
             print(f"Step {step:7d}  |  D_public: {d_pub_err:.4f}  "
                   f"D_bob: {d_bob_err:.4f}  "
@@ -735,16 +786,22 @@ def run_selective_mode(args):
                   f"BlindEve: {blind_eve_baseline:.4f}  "
                   f"Adv: {eve_adv:.4f}  |  {status}")
 
-        # ── Periodic checkpoint ───────────────────────────────────────────────
+# ── Periodic checkpoint ───────────────────────────────────────────────
         if step > 0 and step % 10000 == 0:
             for model, name in [(alice_sel, "alice_sel"), (bob_sel, "bob_sel"), (eve_sel, "eve_sel")]:
                 model.save_weights(os.path.join(sel_ckpt_dir, f"{name}_step{step}.weights.h5"))
+            # Save history alongside checkpoint
+            save_selective_history(history, sel_ckpt_dir, step=step)
             print(f"[Save] Selective checkpoint at step {step} → {sel_ckpt_dir}")
 
     # ── Final checkpoint ──────────────────────────────────────────────────────
     for model, name in [(alice_sel, "alice_sel"), (bob_sel, "bob_sel"), (eve_sel, "eve_sel")]:
         model.save_weights(os.path.join(sel_ckpt_dir, f"{name}_final.weights.h5"))
     print(f"[Save] Selective final models → {sel_ckpt_dir}")
+
+    # Save final history
+    save_selective_history(history, sel_ckpt_dir)
+    print(f"[Save] Final history saved")
 
     # ── Plots ─────────────────────────────────────────────────────────────────
     save_selective_plots(history, args)
@@ -783,6 +840,7 @@ def run_selective_mode(args):
         "privacy_achieved": success
     }
     json_path = os.path.join(args.plot_dir, "selective", "selective_results.json")
+    os.makedirs(os.path.dirname(json_path), exist_ok=True)
     with open(json_path, "w") as jf:
         json.dump(results, jf, indent=2)
     print(f"[Results] JSON saved → {json_path}")
@@ -915,6 +973,47 @@ def load_models(alice, bob, eve, save_dir):
             print(f"[Load] {name} ← {path}")
         else:
             print(f"[Load] No checkpoint found for {name} at {path}, starting fresh.")
+
+
+
+
+
+
+
+
+
+
+
+
+
+def save_selective_history(history, checkpoint_dir, step=None):
+    """Save training history to JSON file."""
+    history_file = os.path.join(checkpoint_dir, "training_history.json")
+    
+    # Convert numpy/tensor values to Python native types
+    serializable_history = {}
+    for key, values in history.items():
+        serializable_history[key] = [float(v) if hasattr(v, 'item') else v for v in values]
+    
+    with open(history_file, 'w') as f:
+        json.dump(serializable_history, f, indent=2)
+    print(f"[Save] History saved to {history_file}")
+
+
+def load_selective_history(checkpoint_dir):
+    """Load training history from JSON file if it exists."""
+    history_file = os.path.join(checkpoint_dir, "training_history.json")
+    if os.path.exists(history_file):
+        with open(history_file, 'r') as f:
+            history = json.load(f)
+        print(f"[Load] Loaded history from {history_file} ({len(history.get('steps', []))} entries)")
+        return history
+    return None
+
+
+
+
+
 
 
 # ─────────────────────────────────────────────────────────────────────────────
