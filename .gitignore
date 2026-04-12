@@ -4,3 +4,4 @@ __pycache__/
 .env
 training_images/
 'do not touch'/
+cifar-10-python.tar.gz
