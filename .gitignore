@@ -5,3 +5,4 @@ __pycache__/
 training_images/
 'do not touch'/
 cifar-10-python.tar.gz
+checkpoints/selective/
