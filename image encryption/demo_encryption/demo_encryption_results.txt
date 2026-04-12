@@ -1,0 +1,90 @@
+python demo_encryption.py --create-test --checkpoint-dir ./checkpoints/image_patches_4x4
+[Test] Synthetic pattern → /tmp/test_pattern.png  (128×128 px)
+2026-04-10 14:28:55.121878: I tensorflow/core/platform/cpu_feature_guard.cc:210] This TensorFlow binary is optimized to use available CPU instructions in performance-critical operations.
+To enable the following instructions: AVX2 FMA, in other operations, rebuild TensorFlow with the appropriate compiler flags.
+
+==================================================================
+  ADVERSARIAL NEURAL CRYPTOGRAPHY — Image Encryption Demo
+  Checkpoint : ./checkpoints/image_patches_4x4
+  [RESEARCH DEMONSTRATION — NOT production-grade security]
+==================================================================
+
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+I0000 00:00:1775827737.436505  277641 gpu_device.cc:2020] Created device /job:localhost/replica:0/task:0/device:GPU:0 with 1219 MB memory:  -> device: 0, name: NVIDIA GeForce RTX 3050 Laptop GPU, pci bus id: 0000:01:00.0, compute capability: 8.6
+2026-04-10 14:28:58.290380: I external/local_xla/xla/stream_executor/cuda/cuda_dnn.cc:473] Loaded cuDNN version 91900
+[Load] alice ← ./checkpoints/image_patches_4x4/alice_final.weights.h5
+[Load] bob ← ./checkpoints/image_patches_4x4/bob_final.weights.h5
+[Load] eve ← ./checkpoints/image_patches_4x4/eve_final.weights.h5
+Key (first 8 bits): [-1, 1, -1, 1, 1, -1, 1, -1]
+
+Image: /tmp/test_pattern.png  (128×128 px)
+
+[Encrypt] Image: /tmp/test_pattern.png  (128×128)
+[Encrypt] 1024 blocks  (4×4 px each)
+[Encrypt] Done in 0.092s
+[Encrypt] Saved → /tmp/_demo_enc.npz
+[Decrypt] /tmp/_demo_enc.npz  (1024 blocks)
+[Decrypt] Done in 0.005s
+[Decrypt] Saved → /tmp/_demo_dec.png
+[Decrypt] /tmp/_demo_enc.npz  (1024 blocks)
+[Decrypt] Done in 0.006s
+[Decrypt] Saved → /tmp/_wrong.png
+
+[Demo] Running verify_encryption …
+
+============================================================
+  ENCRYPTION VERIFICATION — test_pattern.png
+============================================================
+  Image size        : 128×128 px
+  Total blocks      : 1024  (4×4 px each)
+  Total bits        : 16384
+  Total bit errors  : 76
+  Mean errors/block : 0.074 / 16 bits
+  Perfect blocks    : 971  (94.8%)
+  Minor  (1–4 err)  : 52  (5.1%)
+  Major  (5+ err)   : 1  (0.1%)
+  Worst block idx   : 405  (5 errors)
+  PSNR (soft decode): 4.83 dB
+============================================================
+
+[Verify] Heatmap → /tmp/_demo_heatmap.png
+
+[Demo] Training fresh Eve for 3000 steps against the cipher …
+  Eve step     0: 12.832 / 16 bits
+  Eve step   150: 6.321 / 16 bits
+  Eve step   300: 3.657 / 16 bits
+  Eve step   450: 2.849 / 16 bits
+  Eve step   600: 2.139 / 16 bits
+  Eve step   750: 2.127 / 16 bits
+  Eve step   900: 1.784 / 16 bits
+  Eve step  1050: 1.347 / 16 bits
+  Eve step  1200: 1.514 / 16 bits
+  Eve step  1350: 1.550 / 16 bits
+  Eve step  1500: 1.283 / 16 bits
+  Eve step  1650: 1.153 / 16 bits
+  Eve step  1800: 1.409 / 16 bits
+  Eve step  1950: 1.250 / 16 bits
+  Eve step  2100: 1.239 / 16 bits
+  Eve step  2250: 1.262 / 16 bits
+  Eve step  2400: 1.004 / 16 bits
+  Eve step  2550: 1.297 / 16 bits
+  Eve step  2700: 1.606 / 16 bits
+  Eve step  2850: 1.350 / 16 bits
+
+  Eve best error : 0.716 / 16  |  ⚠️  PARTIAL BREAK
+
+==================================================================
+  RESULTS SUMMARY
+==================================================================
+  Image                  : 128×128 px
+  Encryption time        : 0.095s
+  Decryption time        : 0.008s
+  PSNR (soft decode)     : 4.8 dB
+  Mean Bob error/block   : 0.074 / 16 bits
+  Perfect blocks         : 971 / 1024  (94.8%)
+  Eve best error         : 0.716 / 16 bits  (random = 8)
+  Security status        : ⚠️  PARTIAL BREAK
+  Figure saved           : encryption_demo.png
+==================================================================
+
+

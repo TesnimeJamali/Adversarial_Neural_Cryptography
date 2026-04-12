@@ -1,0 +1,19 @@
+{
+  "image": "/tmp/test_pattern.png",
+  "checkpoint_dir": "./checkpoints/image_patches_4x4",
+  "n_runs": 5,
+  "steps_per_run": 5000,
+  "msg_size": 16,
+  "random_baseline": 8.0,
+  "security_threshold": 6.8,
+  "best_errors": [
+    0.7123526930809021,
+    0.6349565982818604,
+    0.6232878565788269,
+    0.60687255859375,
+    0.5462175607681274
+  ],
+  "mean_best_error": 0.6247374534606933,
+  "secure_runs": 0,
+  "overall_status": "\u274c INSECURE"
+}

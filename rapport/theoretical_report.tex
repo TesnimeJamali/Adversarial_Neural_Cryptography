@@ -16,12 +16,11 @@
 
 % ── Page geometry ─────────────────────────────────────────────────────────────
 \usepackage[
-  top    = 2.5cm,
-  bottom = 2.5cm,
-  left   = 3.0cm,
-  right  = 2.5cm
+top    = 2.5cm,
+bottom = 2.5cm,
+left   = 1.5cm,
+right  = 1.5cm
 ]{geometry}
-
 % ── Mathematics ───────────────────────────────────────────────────────────────
 \usepackage{amsmath, amssymb, amsthm}
 \usepackage{mathtools}             % dcases, prescript, etc.
@@ -31,7 +30,7 @@
 \usepackage[dvipsnames, table]{xcolor}
 \usepackage{graphicx}
 \usepackage{tikz}
-\usetikzlibrary{shapes.geometric, arrows.meta, positioning, shadows}
+\usetikzlibrary{shapes.geometric, arrows.meta, positioning, shadows, calc}
 
 % ── Tables ────────────────────────────────────────────────────────────────────
 \usepackage{booktabs}
@@ -252,8 +251,6 @@
 \date{}
 
 % =============================================================================
-\usepackage{tikz}
-\usetikzlibrary{calc}
 \begin{document}
 % =============================================================================
 
@@ -271,7 +268,7 @@
   \textbf{Subject}      & Neural Cryptography &
   \textbf{Framework}    & TensorFlow 2.x \\[2pt]
   \textbf{Reference}    & arXiv:1610.06918    &
-  \textbf{Sections}     & 1.\;Abstract \quad 2.\;Introduction \\[2pt]
+  \textbf{Sections}     & Abstract + Sections 1--12 \\[2pt]
   \textbf{Keywords}     & \multicolumn{3}{l}{%
     adversarial training · neural encryption · Alice–Bob–Eve ·
     convolutional networks · self-attention}
@@ -280,20 +277,20 @@
 
 {\color{BorderGray}\rule{\linewidth}{0.5pt}}
 \vspace{0.4cm}
-
+\newpage
 % Table of Contents (optional — comment out for submission)
 \tableofcontents
 \vspace{1cm}
 
 % =============================================================================
 \newpage
-\section{Abstract}
+\section*{Abstract}
 \label{sec:abstract}
+\addcontentsline{toc}{section}{Abstract}
 % =============================================================================
 
 \begin{tcolorbox}[
   researchbox,
-  title = {\faIcon\ Overview},
   title = {Overview},
 ]
 This report presents a comprehensive theoretical investigation of
@@ -349,7 +346,8 @@ TensorFlow~2.x using Keras model subclassing and eager execution with
 \code{@tf.function} compilation. It supports model checkpointing and
 reloading, post-training \eve{} robustness evaluation via multiple
 reset-and-retrain cycles, real ASCII text encryption
-via block-based chunking, a configurable training step ratio between
+via block-based chunking, structured image-patch encryption using
+real image data, a configurable training step ratio between
 \alice/\bob{} and \eve{}, three loss function variants (quadratic,
 linear, binary cross-entropy), an optional self-attention layer in the
 architecture, and automated loss-curve plotting.
@@ -367,9 +365,9 @@ detailed walkthrough of the implementation in \code{main\_enhanced.py}.
 \begin{tcolorbox}[contribbox, title={Keywords}]
   Neural cryptography $\cdot$ Adversarial training $\cdot$
   Generative adversarial networks $\cdot$ Symmetric encryption $\cdot$
-  Alice–Bob–Eve framework $\cdot$ Convolutional neural networks $\cdot$
-  Self-attention $\cdot$ TensorFlow 2 $\cdot$ ASCII bitwise encoding $\cdot$
-  Loss function variants
+  Alice--Bob--Eve framework $\cdot$ Convolutional neural networks $\cdot$
+  Self-attention $\cdot$ TensorFlow~2 $\cdot$ ASCII bitwise encoding $\cdot$
+  Image patch encryption $\cdot$ Loss function variants
 \end{tcolorbox}
 
 % =============================================================================
@@ -634,24 +632,28 @@ covering classical cryptographic primitives, Shannon's model of
 information-theoretic secrecy, foundational neural network concepts,
 the generative adversarial framework, the Adam optimiser, and the
 self-attention mechanism.
-Section~4 provides a detailed exposition of the system architecture,
+Section~\ref{sec:architecture} provides a detailed exposition of the system architecture,
 including the Alice–Bob–Eve framework, the mix~\&~transform network
 design, and the attention-enhanced variant.
-Section~5 formally analyses the loss functions and optimisation
+Section~\ref{sec:loss} formally analyses the loss functions and optimisation
 objectives, including the three loss function variants introduced in
 the enhanced implementation.
-Section~6 examines training dynamics, including convergence behaviour
+Section~\ref{sec:training_dynamics} examines training dynamics, including convergence behaviour
 and the saddle-point nature of the adversarial game.
-Section~7 covers message complexity extensions: random binary, ASCII
-and ASCII text modes.
-Section~8 presents the implementation details with a full annotated
+Section~\ref{sec:message_modes} covers message complexity extensions: random binary, ASCII
+text, and image-patch modes.
+Section~\ref{sec:implementation} presents the implementation details with a full annotated
 walkthrough of \code{main\_enhanced.py}.
-Section~9 evaluates the security properties of the learned
+Section~\ref{sec:security} evaluates the security properties of the learned
 cryptosystem, including post-training \eve{} robustness evaluation.
-Section~10 presents and discusses experimental results.
-Section~11 provides a critical discussion of the approach's strengths,
+Section~\ref{sec:results} presents and discusses experimental results
+across all configurations: baseline random-binary mode, loss function
+variants, training step ratios, the self-attention mechanism,
+post-training robustness, ASCII text mode under both loss variants,
+and structured image-patch training on CIFAR-10 data.
+Section~\ref{sec:discussion} provides a critical discussion of the approach's strengths,
 limitations, and open problems.
-Section~12 concludes the report.
+Section~\ref{sec:conclusion} concludes the report.
 
 
 % =============================================================================
@@ -741,7 +743,7 @@ significantly greater than $\tfrac{1}{2}$~\cite{goldwasser1984probabilistic}.
 Neural cryptography does not achieve IND-CPA in the formal sense — there
 is no proof against all polynomial-time adversaries — but it pursues the
 weaker empirical goal of defeating a specific trained neural network
-adversary. This gap is discussed in detail in Section~9.
+adversary. This gap is discussed in detail in Section~\ref{sec:security}.
 
 % =============================================================================
 \subsection{Shannon's Theory of Secrecy}
@@ -830,7 +832,7 @@ For $N = 16$, this gives the target of exactly $8$ bits wrong. The
 adversarial penalty in \code{main\_enhanced.py} is specifically designed
 to push \eve{}'s error toward this value — not above it (which would
 be trivially reversible) and not below it (which would indicate information
-leakage). This is formalised in Section~5.
+leakage). This is formalised in Section~\ref{sec:loss}.
 
 % =============================================================================
 \subsection{Neural Network Foundations}
@@ -959,7 +961,7 @@ with respect to all trainable parameters:
 where $\mathbf{a}^{(\ell)}$ is the pre-activation output of layer $\ell$.
 In \code{main\_enhanced.py}, TensorFlow~2's automatic differentiation
 engine handles this via \code{tf.GradientTape}:
-
+\newpage
 \begin{lstlisting}[caption={Gradient computation using \code{tf.GradientTape}}]
 with tf.GradientTape() as tape:
     cipher  = alice(tf.concat([o_msg, key], axis=1))
@@ -1750,7 +1752,7 @@ The batch loss minimised during training is the mean over the batch $B$:
         d_1\!\left(P^{(b)},\; h_{\thetaE}\!\left(C^{(b)}\right)\right)
   \label{eq:eve_loss_batch}
 \end{equation}
-
+\newpage
 \begin{lstlisting}[caption={Eve's loss and isolated training step}]
 def eve_loss(o_message, decipher_eve):
     return tf.reduce_mean(l1_distance(o_message, decipher_eve))
@@ -1888,7 +1890,7 @@ output to a probability. The target is $0.5$ --- maximum uncertainty
 for a binary variable. The negative sign means \alice{} and \bob{} maximise
 \eve{}'s output entropy, which is a stronger information-theoretic
 condition closer to Shannon's notion of perfect secrecy~\cite{shannon1949communication}.
-
+\newpage
 \begin{lstlisting}[caption={All three adversarial penalty variants}]
 def eve_adversarial_loss(o_message, decipher_eve, msg_size,
                           variant="quadratic"):
@@ -2313,7 +2315,7 @@ potentially larger architectures are required.
 The two training step functions \code{train\_alice\_bob()} and
 \code{train\_eve()} are decorated with \code{@tf.function}, which
 compiles them into a TensorFlow computation graph on the first call:
-
+\newpage
 \begin{lstlisting}[caption={\texttt{@tf.function} compilation of training steps}]
 @tf.function
 def train_alice_bob(alice, bob, eve, o_msg, key,
@@ -2572,7 +2574,7 @@ when all bits are correct.
         bit 7 (MSB) equal to zero, introducing a predictable bit in every
         block. This structural bias slightly weakens post-training
         robustness compared to the fully uniform random baseline --- a
-        genuine finding confirmed experimentally in Section~10.6.
+        genuine finding confirmed experimentally in Section~\ref{subsec:ascii_results}.
   \item \textbf{Human-interpretable security}: garbled character output
         from \eve{} provides intuitive evidence of encryption for
         non-technical readers.
@@ -2684,7 +2686,7 @@ Table~\ref{tab:mode_summary} summarises the two implemented data modes.
 Both modes use identical architecture, loss functions, and $\{-1,+1\}$
 input domain. The only meaningful difference is the MSB bias inherent
 to printable ASCII, which slightly reduces post-training robustness
-(Section~10.6) but does not affect Bob's decryption fidelity.
+(Section~\ref{subsec:ascii_results}) but does not affect Bob's decryption fidelity.
 % =============================================================================
 \newpage
 \section{Implementation Details}
@@ -2777,7 +2779,7 @@ np.random.seed(args.seed)
 
 With fixed seeds and the same command-line arguments, two runs will
 produce identical training trajectories on the same hardware.
-This is essential for the experimental comparisons in Section~10,
+This is essential for the experimental comparisons in Section~\ref{sec:results},
 where loss variants and step ratios are compared across multiple runs.
 
 % =============================================================================
@@ -2901,8 +2903,8 @@ The \code{history} dictionary accumulates Bob's error, Eve's error,
 Alice/Bob's composite loss, and Eve's loss at every logging interval.
 This dictionary is passed to \code{save\_loss\_curves()} after training
 to generate the loss-curve plots. The console output includes a text-based
-progress bar using Unicode block characters (\code{UNIBLOCK}) for
-immediate visual feedback during long training runs.
+progress bar using Unicode block characters (\texttt{U+2588}, full block)
+for immediate visual feedback during long training runs.
 
 % =============================================================================
 \subsection{Model Persistence: Save and Load}
@@ -2960,7 +2962,7 @@ def load_models(alice, bob, eve, save_dir):
 
 This system enables a workflow where \alice{} and \bob{} are trained
 once, saved, and then the post-training Eve retraining experiment
-(Section~6.6) is repeated multiple times without retraining Alice and
+(Section~\ref{subsec:post_training_eve}) is repeated multiple times without retraining Alice and
 Bob --- a significant time saving when \code{args.eve\_retrain} is
 large.
 
@@ -2985,7 +2987,7 @@ and weights). The HDF5 approach is used here because:
 \label{subsec:visualisation}
 % =============================================================================
 
-\code{main\_enhanced.py} automatically generates three categories of
+\code{main\_enhanced.py} automatically generates two categories of
 publication-quality plots saved to \code{args.plot\_dir}.
 
 \subsubsection*{Loss Curve Plots}
@@ -3030,9 +3032,11 @@ ax.axhline(args.msg_size / 2, color="#95A5A6",
            label=f"Random baseline ({args.msg_size/2} bits)")
 \end{lstlisting}
 
-
-% =============================================================================
-\subsection{Complete Execution Flow}
+The $85\%$ security threshold (\code{0.85 $\times$ msg\_size / 2}) is separately drawn
+as a dotted orange line, and is also reported in the console output of
+\code{retrain\_eve\_robustness()} as the pass/fail criterion. Together, the two
+plot types provide both an overall learning trajectory and a per-run security
+verdict for every experimental configuration.
 \label{subsec:exec_flow}
 % =============================================================================
 
@@ -3068,11 +3072,15 @@ Figure~\ref{fig:exec_flow} summarises the complete execution flow of
 		\node[block,    below=0.3cm of train] (save)   {\textbf{7.} Save final models (\code{\_final.weights.h5})};
 		\node[block,    below=0.3cm of save]  (plot)   {\textbf{8.} Generate loss curve plots};
 		\node[decision, below=0.4cm of plot]  (mode)   {Mode?};
-		% ── Mode branches (left = ascii, right = random) ─────────────────────────────
-		\node[sideblock, left=1.5cm of mode]  (asc)    {ASCII\\text demo};
-		\node[sideblock, right=1.5cm of mode] (rnd)    {Random binary\\demo};
+		% ── Mode branches ───────────────────────────────────────────────────────────
+		% ASCII: goes to demo then retrain
+		\node[sideblock, left=2.2cm of mode]  (asc)    {ASCII\\text demo};
+		% Random: goes to demo then retrain
+		\node[sideblock, right=2.2cm of mode] (rnd)    {Random binary\\demo};
+		% Image patches: DIRECT to retrain (skips demo)
+		\node[sideblock, below=0.6cm of mode] (img)    {Image patches\\skip demo};
 		% ── Continuation after demo ──────────────────────────────────────────────────
-		\node[block,    below=1.3cm of mode]  (retrain){\textbf{9.} Post-training Eve robustness evaluation};
+		\node[block,    below=2.2cm of mode]  (retrain){\textbf{9.} Post-training Eve robustness evaluation};
 		\node[block,    below=0.3cm of retrain](rplot)  {\textbf{10.} Eve retraining bar chart};
 		% ── Main vertical arrows ─────────────────────────────────────────────────────
 		\foreach \x/\y in {args/seed, seed/build, build/data, data/warmup,
@@ -3083,17 +3091,24 @@ Figure~\ref{fig:exec_flow} summarises the complete execution flow of
 		\draw[sarr] (load.east)  -- (lmod.west)
 		node[midway, above, font=\tiny\itshape]{yes};
 		\draw[sarr] (train.east) -- (ckpt.west);
+		% ASCII branch: mode -> demo -> retrain
 		\draw[sarr] (mode.west)  -- (asc.east)
 		node[midway, above, font=\tiny\itshape]{ascii};
+		\draw[sarr] (asc.south)  |- (retrain.west);
+		% Random branch: mode -> demo -> retrain
 		\draw[sarr] (mode.east)  -- (rnd.west)
 		node[midway, above, font=\tiny\itshape]{random};
-		% Both demo branches rejoin at step 9
-		\draw[sarr] (asc.south)  |- (retrain.west);
 		\draw[sarr] (rnd.south)  |- (retrain.east);
+		% Image patches branch: mode DIRECTLY to retrain (skips demo)
+		\draw[sarr] (mode.south) -- (img.north)
+		node[midway, right, font=\tiny\itshape]{image\_patches};
+		\draw[sarr] (img.south)  -- (retrain.north);
 	\end{tikzpicture}
 	\caption{Complete execution flow of \code{main\_enhanced.py}.
 		Decision nodes (diamonds) branch on CLI flags or mode selection.
-		Side blocks (grey) indicate optional or periodic actions.}
+		Side blocks (grey) indicate optional or periodic actions.
+		The \texttt{image\_patches} mode bypasses the text demo and connects
+		directly to post-training evaluation (step 9).}
 	\label{fig:exec_flow}
 \end{figure}
 
@@ -3145,7 +3160,7 @@ it decreases faster than any polynomial in $\lambda$).
 \subsubsection*{Perfect Secrecy (Shannon)}
 
 The stronger information-theoretic notion of perfect secrecy
-(Section~3.2) requires:
+(Section~\ref{subsec:shannon}) requires:
 %
 \begin{equation}
   H(P \mid C) = H(P)
@@ -3285,7 +3300,7 @@ attacks is an empirical question.
 % =============================================================================
 
 The most direct empirical measure of security in this system is the
-post-training Eve robustness evaluation described in Section~6.6.
+post-training Eve robustness evaluation described in Section~\ref{subsec:post_training_eve}.
 The interpretation framework for its results is as follows.
 
 \subsubsection*{Security Classification}
@@ -3383,7 +3398,7 @@ schemes that lack a key exchange protocol.
 
 \subsubsection*{Limitation 5: Key Reuse Across Patches}
 
-In the ASCII chunking mode (Section~7), the same key $K$ is
+In the ASCII chunking mode (Section~\ref{sec:message_modes}), the same key $K$ is
 used to encrypt all patches of a message. This corresponds to ECB
 mode operation, which is known to leak structure in structured data.
 Adding a key refresh or a counter-based nonce would mitigate this,
@@ -3479,8 +3494,12 @@ This section presents and interprets the experimental results produced
 by \code{main\_enhanced.py} across all configurations. We begin with
 the baseline results for the default random-binary mode, then analyse
 the loss curve dynamics, the post-training Eve robustness evaluation,
-the effects of each configurable parameter, and the qualitative
-results for the ASCII text mode.
+the effects of each configurable parameter (loss function variant,
+training step ratio, and attention mechanism), and the results for
+ASCII text mode under both quadratic and linear loss variants.
+The section concludes with an analysis of the image-patch training
+experiment, which tests whether the learned cipher generalises to
+structured visual data.
 
 % =============================================================================
 \subsection{Baseline Results: Default Configuration}
@@ -3519,11 +3538,11 @@ guessing.
 
 \subsubsection*{Observed Success Rate}
 
-Across the seeds tested (1, 7, 13, 42), the system exhibited a mix of
+Across the seeds tested (1, 42, and 13), the system exhibited a mix of
 outcomes consistent with the stochastic nature of adversarial training.
 Seed~42 produced good training-time convergence (Bob error 0.02) but
 weak post-training robustness (0/5 secure runs). Seed~13 achieved both
-good training convergence and strong post-training robustness (4/5 secure
+good training convergence and strong post-training robustness (5/5 secure
 runs), and is therefore designated the successful baseline.
 
 \begin{table}[H]
@@ -3552,11 +3571,11 @@ runs), and is therefore designated the successful baseline.
 Figure~\ref{fig:loss_curve_baseline} shows the actual training loss
 curves recorded during the baseline run (seed~13, quadratic loss,
 eve\_steps=2). The curves confirm the four-phase trajectory described
-theoretically in Section~6.2.
+theoretically in Section~\ref{subsec:four_phases}.
 
 \begin{figure}[H]
   \centering
-  \includegraphics[width=\linewidth]{plots/seed_13/training_loss_curve.png}
+  \includegraphics[width=\linewidth]{../plots/seed_13/training_loss_curve.png}
   \caption{Training loss curves for the baseline run (seed~13,
            quadratic loss, eve\_steps=2, random binary mode, 20{,}000
            steps). Bob's error (red) converges to $0.56$ bits;
@@ -3655,7 +3674,7 @@ Table~\ref{tab:loss_variant_results}.
 
 \begin{figure}[H]
   \centering
-  \includegraphics[width=\linewidth]{plots/linear/training_loss_curve.png}
+  \includegraphics[width=\linewidth]{../plots/linear/training_loss_curve.png}
   \caption{Training loss curves: \textbf{linear} loss variant (seed~13).
            Eve's error (green) rises far above the $N/2 = 8$ baseline
            to $\sim$14.6 bits, indicating anti-correlation. Bob's error
@@ -3666,7 +3685,7 @@ Table~\ref{tab:loss_variant_results}.
 
 \begin{figure}[H]
   \centering
-  \includegraphics[width=\linewidth]{plots/bce/training_loss_curve.png}
+  \includegraphics[width=\linewidth]{../plots/bce/training_loss_curve.png}
   \caption{Training loss curves: \textbf{BCE} loss variant (seed~13).
            Bob (red) and Eve (green) curves are nearly identical
            throughout training, both stabilising near $3.4$ bits ---
@@ -3679,11 +3698,11 @@ Table~\ref{tab:loss_variant_results}.
 \begin{figure}[H]
   \centering
   \begin{minipage}{0.49\linewidth}
-    \includegraphics[width=\linewidth]{plots/linear/eve_retrain_results.png}
+    \includegraphics[width=\linewidth]{../plots/linear/eve_retrain_results.png}
   \end{minipage}
   \hfill
   \begin{minipage}{0.49\linewidth}
-    \includegraphics[width=\linewidth]{plots/bce/eve_retrain_results.png}
+    \includegraphics[width=\linewidth]{../plots/bce/eve_retrain_results.png}
   \end{minipage}
   \caption{Post-training Eve robustness bar charts. \textbf{Left: Linear}
            --- all five bars are green and far above the $8.0$ baseline
@@ -3713,12 +3732,12 @@ creating a stable equilibrium precisely at random-guessing.
 
 \textbf{Linear --- anti-correlation collapse.}
 The linear variant achieves 5/5 secure runs and a mean post-training
-Eve error of $12.28$ bits, which appears superior. However, this is a
-degenerate outcome. Eve's \emph{training-time} error of $14.37$ bits
+Eve error of $14.08$ bits, which appears superior at first glance. However, this is a
+degenerate outcome. Eve's \emph{training-time} error of $14.56$ bits
 --- far above $N/2$ --- is the diagnostic: \alice{} has learned to
 encrypt by systematically inverting bits, and the co-trained \eve{}
 has learned to invert her own output. A post-training fresh \eve{}
-that has not co-adapted makes $\sim$12 errors rather than $\sim$8
+that has not co-adapted makes $\sim$14 errors rather than $\sim$8
 precisely because the cipher is anti-correlated. An informed adversary
 could simply negate Eve's output to obtain only $16 - 14.08 = 1.92$
 errors --- a near-complete break. The linear loss's constant gradient
@@ -3775,11 +3794,11 @@ summarises the results.
 \begin{figure}[H]
   \centering
   \begin{minipage}{0.49\linewidth}
-    \includegraphics[width=\linewidth]{plots/eve_steps_1/training_loss_curve.png}
+    \includegraphics[width=\linewidth]{../plots/eve_steps_1/training_loss_curve.png}
   \end{minipage}
   \hfill
   \begin{minipage}{0.49\linewidth}
-    \includegraphics[width=\linewidth]{plots/eve_steps_1/eve_retrain_results.png}
+    \includegraphics[width=\linewidth]{../plots/eve_steps_1/eve_retrain_results.png}
   \end{minipage}
   \caption{\textbf{eve\_steps=1}: Bob stagnates at $1.56$ bits (left).
            All five post-training runs partial breaks (right), mean $4.60$ bits.}
@@ -3789,11 +3808,11 @@ summarises the results.
 \begin{figure}[H]
   \centering
   \begin{minipage}{0.49\linewidth}
-    \includegraphics[width=\linewidth]{plots/eve_steps_3/training_loss_curve.png}
+    \includegraphics[width=\linewidth]{../plots/eve_steps_3/training_loss_curve.png}
   \end{minipage}
   \hfill
   \begin{minipage}{0.49\linewidth}
-    \includegraphics[width=\linewidth]{plots/eve_steps_3/eve_retrain_results.png}
+    \includegraphics[width=\linewidth]{../plots/eve_steps_3/eve_retrain_results.png}
   \end{minipage}
   \caption{\textbf{eve\_steps=3}: Bob converges to $0.77$ bits (left).
            All five runs secure (right), mean $8.42$ bits.}
@@ -3803,30 +3822,33 @@ summarises the results.
 \begin{figure}[H]
   \centering
   \begin{minipage}{0.49\linewidth}
-    \includegraphics[width=\linewidth]{plots/eve_steps_4/training_loss_curve.png}
+    \includegraphics[width=\linewidth]{../plots/eve_steps_4/training_loss_curve.png}
   \end{minipage}
   \hfill
   \begin{minipage}{0.49\linewidth}
-    \includegraphics[width=\linewidth]{plots/eve_steps_4/eve_retrain_results.png}
+    \includegraphics[width=\linewidth]{../plots/eve_steps_4/eve_retrain_results.png}
   \end{minipage}
   \caption{\textbf{eve\_steps=4}: Bob stagnates at $1.84$ bits (left).
            All five post-training runs are partial breaks (right), mean $6.06$ bits.}
   \label{fig:step_ratio_4}
 \end{figure}
 
-\subsubsection*{Discussion: eve\_steps=2 is the Sweet Spot}
+\subsubsection*{Discussion: \texttt{eve\_steps=2} is the Sweet Spot}
 
-The paper's recommendation of eve\_steps=2 is confirmed by these results.
+The paper's recommendation of \code{eve\_steps=2} is confirmed by these results.
+The baseline loss curve and robustness chart for \code{eve\_steps=2} are shown
+in Figures~\ref{fig:loss_curve_baseline} and~\ref{fig:eve_retrain} respectively
+(Section~\ref{subsec:loss_curves} and~\ref{subsec:robustness_results_sec10}).
 It achieves the \textbf{best robustness} of any ratio: 5/5 secure runs and
-mean $9.04$ bits ($113\%$ of baseline). Eve\_steps=3 also achieves 5/5 secure
-but with slightly lower mean robustness ($8.42$ bits). Eve\_steps=1 fails
+mean $9.04$ bits ($113\%$ of baseline). \code{Eve\_steps=3} also achieves 5/5 secure
+but with slightly lower mean robustness ($8.42$ bits). \code{Eve\_steps=1} fails
 completely (0/5 secure, mean $4.60$ bits) --- insufficient adversarial pressure
 means Alice and Bob never develop robust key-dependent encryption.
-Counter-intuitively, eve\_steps=4 also fails (0/5 secure, mean $6.06$ bits):
+Counter-intuitively, \code{eve\_steps=4} also fails (0/5 secure, mean $6.06$ bits):
 too much adversarial pressure prevents Alice and Bob from converging to a
 stable cipher within the 20{,}000 step budget, with Bob stalling at $1.84$
 bits error. The relationship between step ratio and performance is therefore
-non-monotonic, with eve\_steps=2 occupying the optimal balance.
+non-monotonic, with \code{eve\_steps=2} occupying the optimal balance.
 % =============================================================================
 \subsection{Effect of the Attention Mechanism}
 \label{subsec:attention_results}
@@ -3859,11 +3881,11 @@ compares results against the no-attention baseline.
 \begin{figure}[H]
   \centering
   \begin{minipage}{0.49\linewidth}
-    \includegraphics[width=\linewidth]{plots/attention/training_loss_curve.png}
+    \includegraphics[width=\linewidth]{../plots/attention/training_loss_curve.png}
   \end{minipage}
   \hfill
   \begin{minipage}{0.49\linewidth}
-    \includegraphics[width=\linewidth]{plots/attention/eve_retrain_results.png}
+    \includegraphics[width=\linewidth]{../plots/attention/eve_retrain_results.png}
   \end{minipage}
   \caption{Attention-augmented results (seed~13). Left: Bob stalls near
            $1.55$ bits. Right: $0/5$ secure runs, mean $6.15$ bits.}
@@ -3886,7 +3908,7 @@ fixed receptive fields become a genuine bottleneck.
 \label{subsec:robustness_results_sec10}
 % =============================================================================
 
-The post-training Eve robustness evaluation (Section~6.6) provides the
+The post-training Eve robustness evaluation (Section~\ref{subsec:post_training_eve}) provides the
 most stringent empirical security test. Table~\ref{tab:robustness_results}
 and Figure~\ref{fig:eve_retrain} show the observed results for the
 baseline run (seed~13, quadratic loss, 5 retraining runs $\times$
@@ -3919,7 +3941,7 @@ baseline run (seed~13, quadratic loss, 5 retraining runs $\times$
 
 \begin{figure}[H]
   \centering
-  \includegraphics[width=0.9\linewidth]{plots/seed_13/eve_retrain_results.png}
+  \includegraphics[width=0.9\linewidth]{../plots/seed_13/eve_retrain_results.png}
   \caption{Post-training Eve robustness bar chart (seed~13 baseline).
            Green bars: fresh Eve error above $6.8$ bit security threshold
            (secure). Red bars: partial break. Dashed line: random-guessing
@@ -3945,7 +3967,7 @@ neural network attackers beyond random guessing.
 % =============================================================================
 
 The ASCII text mode was evaluated using the bitwise encoding described in
-Section~7.2 ($N=16$, seed~13, quadratic loss, eve\_steps=2, 20{,}000 steps).
+Section~\ref{subsec:mode_ascii} ($N=16$, seed~13, quadratic loss, eve\_steps=2, 20{,}000 steps).
 Table~\ref{tab:ascii_results_summary} summarises the key metrics, and
 Figures~\ref{fig:ascii_loss_curve} and~\ref{fig:ascii_retrain} show the
 training dynamics and post-training robustness.
@@ -3972,7 +3994,7 @@ training dynamics and post-training robustness.
 
 \begin{figure}[H]
   \centering
-  \includegraphics[width=\linewidth]{plots/ascii_quadratic/training_loss_curve.png}
+  \includegraphics[width=\linewidth]{../plots/ascii_quadratic/training_loss_curve.png}
   \caption{Training loss curves for ASCII text mode (seed~13, $N=16$,
            eve\_steps=2). Bob's error (red) declines monotonically to
            $\approx 0.04$ bits --- among the smoothest convergences observed.
@@ -3984,7 +4006,7 @@ training dynamics and post-training robustness.
 
 \begin{figure}[H]
   \centering
-  \includegraphics[width=0.9\linewidth]{plots/ascii_quadratic/eve_retrain_results.png}
+  \includegraphics[width=0.9\linewidth]{../plots/ascii_quadratic/eve_retrain_results.png}
   \caption{Post-training Eve robustness for ASCII text mode. Three of five
            bars fall below the $6.8$ bit security threshold ($2/5$ secure),
            mean $6.20$ bits. Compared to the random baseline ($5/5$
@@ -4031,7 +4053,7 @@ Eve's output (decoded from her bit predictions) is unintelligible text.
 
 The ASCII text mode was also evaluated with the \textbf{linear} loss variant
 (seed~13, $N=16$, eve\_steps=2, 20{,}000 steps) to examine whether the
-anti-correlation phenomenon observed in random binary mode (Section~10.3)
+anti-correlation phenomenon observed in random binary mode (Section~\ref{subsec:loss_variant_results})
 persists under structured ASCII input.
 
 \begin{table}[H]
@@ -4055,12 +4077,12 @@ persists under structured ASCII input.
 
 \begin{figure}[H]
 	\centering
-	\includegraphics[width=\linewidth]{plots/ascii_linear/training_loss_curve.png}
+	\includegraphics[width=\linewidth]{../plots/ascii_linear/training_loss_curve.png}
 	\caption{Training loss curves for ASCII text mode with linear loss variant
 		(seed~13, $N=16$, eve\_steps=2). Bob's error (red) converges to
 		$0.47$ bits. Eve's error (green) rises far above the random-guess
 		baseline to $\sim$12.5 bits, exhibiting the same anti-correlation
-		pattern as the random + linear case (Section~10.3).}
+		pattern as the random + linear case (Section~\ref{subsec:loss_variant_results}).}
 	\label{fig:ascii_linear_loss_curve}
 \end{figure}
 
@@ -4089,7 +4111,7 @@ persists under structured ASCII input.
 
 \begin{figure}[H]
 	\centering
-	\includegraphics[width=0.9\linewidth]{plots/ascii_linear/eve_retrain_results.png}
+	\includegraphics[width=0.9\linewidth]{../plots/ascii_linear/eve_retrain_results.png}
 	\caption{Post-training Eve robustness for ASCII text mode with linear loss.
 		All five bars are far above the random baseline ($\sim$15 bits),
 		reflecting anti-correlation rather than genuine security. An
@@ -4127,6 +4149,320 @@ impairs legitimate decryption as well. The linear loss is therefore
 reason as in random mode: its one-sided gradient enables degenerate
 anti-correlated solutions with no natural stopping point.
 % =============================================================================
+
+% =============================================================================
+\subsection{Image Patches Training: Structured Visual Data}
+\label{subsec:image_patches_results}
+% =============================================================================
+
+\subsubsection*{Motivation}
+
+The experiments in Sections~\ref{subsec:baseline_results}--\ref{subsec:ascii_linear_results}
+trained exclusively on messages drawn from uniform or near-uniform binary distributions.
+A natural question is whether the learned cipher \emph{generalises to structured,
+	real-world data} whose statistics differ substantially from a uniform random source.
+Image patches are an ideal testbed: natural image patches exhibit strong spatial
+correlations (adjacent pixels tend to have similar values), a highly non-uniform
+marginal distribution (most 4$\times$4 patches are near-uniform grey or contain a
+single edge), and a known public distribution (CIFAR-10), making the task
+harder than encrypting random bits. A successful result would also directly
+validate the \code{ImageEncryptor} pipeline described in
+Sections~\ref{sec:implementation} and~\ref{subsec:mode_ascii}.
+
+% ── 10.8.2 Experimental Setup ────────────────────────────────────────────────
+
+\subsubsection*{Experimental Setup}
+
+\textbf{Dataset.}
+The training corpus consists of all 50{,}000 CIFAR-10 training images converted
+to grayscale and cached in \code{./training\_images/}. During training, the
+\code{ImagePatchLoader} samples random 4$\times$4 patches from random images
+at each step. Each patch is binarised by thresholding at 128 (pixel $> 127
+\to +1$, else $-1$), producing a 16-bit message vector in $\{-1,+1\}^{16}$.
+This binarisation matches the protocol used by \code{image\_encryptor.py}
+for downstream image encryption.
+
+\textbf{Architecture.}
+The standard \code{CipherNet} / \code{AttackerNet} architecture
+(Section~\ref{subsec:mix_transform}) is used without modification.
+The message size ($N = 16$) matches the 4$\times$4 patch size exactly,
+so no architectural change is required.
+
+\textbf{Key hyperparameter difference: \code{eve\_steps = 4}.}
+The random-mode baseline used \code{eve\_steps = 2}.
+For image patches, \code{eve\_steps = 4} was chosen because the
+non-uniform distribution of natural image patches provides more exploitable
+statistical structure: an Eve trained on correlated patches can in principle
+leverage spatial statistics that a purely random-guessing strategy would miss.
+Increasing Eve's training pressure compensates for this advantage.
+Section~\ref{subsec:step_ratio_results} showed that \code{eve\_steps = 4}
+fails for the random baseline (Bob stalls at $1.84$ bits), but the
+structured training signal of image patches changes the dynamics sufficiently
+that a stronger adversary is necessary.
+
+Table~\ref{tab:image_patches_params} summarises all hyperparameters.
+
+\begin{table}[H]
+	\centering
+	\caption{Hyperparameters for the image patches training experiment.
+		Differences from the random binary baseline are highlighted.}
+	\label{tab:image_patches_params}
+	\renewcommand{\arraystretch}{1.35}
+	\begin{tabularx}{\linewidth}{@{} l c X @{}}
+		\toprule
+		\textbf{Parameter} & \textbf{Value} & \textbf{Rationale} \\
+		\midrule
+		\code{mode}       & \code{image\_patches} &
+		Real image structure instead of uniform random bits \\
+		\code{patch\_size}& $4$  &
+		$4 \times 4$ pixels $= 16$ bits, matching $N = 16$ \\
+		\code{msg\_size}  & $16$ &
+		Original architecture parameter \\
+		\code{key\_size}  & $16$ &
+		Original architecture parameter \\
+		\code{batch\_size}& $4096$ &
+		Large batches for stable adversarial gradient estimates \\
+		\code{steps}      & $100{,}000$ &
+		\textbf{5$\times$ longer} than random mode; structured patches
+		require more time for the adversarial dynamic to stabilise \\
+		\code{eve\_steps} & $4$ &
+		\textbf{Stronger than baseline ($2$)}; needed to exploit
+		spatial statistics of natural images \\
+		\code{loss\_fn}   & \code{quadratic} &
+		Only variant producing stable convergence (Sections~\ref{subsec:loss_variant_results}) \\
+		\code{seed}       & $13$ &
+		Reproducibility (same as all other experiments) \\
+		Dataset & CIFAR-10 grayscale & 50{,}000 images, $32 \times 32$ px each \\
+		\bottomrule
+	\end{tabularx}
+\end{table}
+
+% ── 10.8.3 Results ───────────────────────────────────────────────────────────
+
+\subsubsection*{Training Metrics}
+
+Table~\ref{tab:image_patches_metrics} reports the terminal training metrics
+at step~100{,}000.
+
+\begin{table}[H]
+	\centering
+	\caption{Terminal training metrics for the image patches experiment
+		(step~100{,}000, \code{eve\_steps=4}, quadratic loss, seed~13).
+		Random binary baseline (Section~\ref{subsec:baseline_results})
+		shown for comparison.}
+	\label{tab:image_patches_metrics}
+	\renewcommand{\arraystretch}{1.4}
+	\begin{tabularx}{\linewidth}{@{} l X X @{}}
+		\toprule
+		\textbf{Metric} & \textbf{Image Patches} & \textbf{Random Baseline} \\
+		\midrule
+		Bob reconstruction error  & $2.19$ bits / $16$  ($86.3\%$ correct) &
+		$0.56$ bits / $16$ \\
+		Eve reconstruction error (training) & $3.17$ bits / $16$  ($80.2\%$ correct) &
+		$7.62$ bits / $16$ \\
+		Composite loss $\mathcal{L}_{AB}$   & $0.7483$ & $\approx 0.140$ \\
+		Training steps                      & $100{,}000$ & $20{,}000$ \\
+		\bottomrule
+	\end{tabularx}
+\end{table}
+
+\begin{figure}[H]
+	\centering
+	\includegraphics[width=\linewidth]{../plots/image_patches_4x4/training_loss_curve.png}
+	\caption{Training loss curves for the image patches experiment (seed~13,
+		\code{eve\_steps=4}, quadratic loss, 100{,}000 steps).
+		Bob's error (red) and Eve's error (green) are both substantially
+		elevated compared to the random binary baseline: Bob stabilises
+		near $2.19$ bits and Eve near $3.17$ bits, with persistent
+		oscillation throughout training.
+		Unlike the random mode (Figure~\ref{fig:loss_curve_baseline}),
+		neither curve achieves clean convergence within the training budget.}
+	\label{fig:image_patches_loss}
+\end{figure}
+
+\subsubsection*{Post-Training Eve Robustness}
+
+\begin{table}[H]
+	\centering
+	\caption{Post-training Eve robustness results for the image patches
+		experiment ($5$ runs $\times$ $5{,}000$ steps).
+		Threshold for ``Secure'': $\geq 0.85 \times 8.0 = 6.8$ bits.}
+	\label{tab:image_patches_robustness}
+	\renewcommand{\arraystretch}{1.35}
+	\begin{tabular}{@{} c c c c @{}}
+		\toprule
+		\textbf{Run} & \textbf{Best Eve error (bits)} &
+		\textbf{vs.\ baseline ($N/2 = 8$)} & \textbf{Status} \\
+		\midrule
+		1 & $13.551$ & $169.4\%$ & \textcolor{GreenOK}{Secure} \\
+		2 & $13.502$ & $168.8\%$ & \textcolor{GreenOK}{Secure} \\
+		3 & $13.678$ & $170.9\%$ & \textcolor{GreenOK}{Secure} \\
+		4 & $13.654$ & $170.7\%$ & \textcolor{GreenOK}{Secure} \\
+		5 & $13.604$ & $170.1\%$ & \textcolor{GreenOK}{Secure} \\
+		\midrule
+		\textbf{Mean} & $\mathbf{13.598}$ & $\mathbf{169.9\%}$ &
+		\textbf{5/5 Secure} \\
+		\bottomrule
+	\end{tabular}
+\end{table}
+
+\begin{figure}[H]
+	\centering
+	\includegraphics[width=0.9\linewidth]{../plots/image_patches_4x4/eve_retrain_results.png}
+	\caption{Post-training Eve robustness bar chart for the image patches
+		experiment. All five bars are green and far above both the
+		random baseline ($8.0$ bits, dashed) and the security threshold
+		($6.8$ bits, dotted). Mean $13.598$ bits ($169.9\%$ of baseline).
+		The elevated values are consistent with the anti-correlation
+		phenomenon discussed below.}
+	\label{fig:image_patches_retrain}
+\end{figure}
+
+% ── 10.8.4 Discussion ────────────────────────────────────────────────────────
+
+\subsubsection*{Discussion: The Training-Time vs.\ Post-Training Anomaly}
+
+The most striking feature of the image patches results is the large
+\textbf{discrepancy between training-time and post-training Eve error}:
+training-time Eve achieved only $3.17$ bits error (well below the $8.0$
+random baseline, suggesting she was actively decoding the ciphertext with
+$\approx$80\% bit accuracy), yet all five post-training fresh Eves achieve
+$\approx$13.6 bits --- far \emph{above} the random baseline. This
+pattern strongly resembles the \textbf{anti-correlation collapse} identified
+for the linear loss variant in Section~\ref{subsec:loss_variant_results},
+where an apparent ``high security'' post-training score masked a degenerate
+cipher that could be trivially broken by negating Eve's output.
+
+Several mechanisms may be responsible, and they are not mutually exclusive:
+
+\paragraph{Mechanism 1: Anti-correlation driven by \texttt{eve\_steps=4}.}
+Section~\ref{subsec:step_ratio_results} established that \code{eve\_steps=4}
+causes training failure in the random binary mode, with Bob stalling at
+$1.84$ bits. The image patches result is consistent with the same
+pathology: excessive adversarial pressure causes Alice to learn a systematically
+\emph{inverted} cipher in the image domain. The co-trained Eve adapts to this
+inversion (hence her low training error of $3.17$ bits), but a fresh Eve
+initialised randomly has not learned the inversion convention --- making
+$13.6$ bits her effective error. An adversary who simply negated her output
+would achieve approximately $16 - 13.6 = 2.4$ bits error, which constitutes
+a near-complete break. This interpretation is supported by the remarkably
+tight clustering of the five post-training runs (range $13.50$--$13.68$ bits,
+standard deviation $< 0.08$ bits), which is the same signature of
+a \emph{deterministic structural property} observed for the ASCII + linear
+variant (Section~\ref{subsec:ascii_linear_results}, range $14.99$--$15.02$ bits).
+
+\paragraph{Mechanism 2: Exploitation of the patch binarisation bias.}
+Natural CIFAR-10 patches, when binarised at 128, are heavily biased:
+patches from sky, background, or near-uniform regions produce mostly
+$+1$ bits, while darker patches produce mostly $-1$ bits. This
+distributional asymmetry (unlike the perfectly uniform $\{-1,+1\}$
+distribution of random mode) provides Alice with structural regularities
+to exploit when constructing an anti-correlated cipher. The effect is
+analogous to the MSB bias identified for ASCII mode
+(Section~\ref{subsec:ascii_results}), but more pronounced because the
+full 16-bit patch distribution is far from uniform.
+
+\paragraph{Mechanism 3: Co-trained Eve overfitting to Alice's weight trajectory.}
+A subtler possibility is that the co-trained Eve, over 100{,}000 steps, adapted
+to the specific sequence of Alice's weight updates rather than to Alice's final
+cipher alone. The fresh post-training Eve sees only the \emph{terminal} cipher
+and must learn from scratch, potentially encountering a different effective
+loss landscape than the co-trained Eve experienced. This mechanism would
+predict higher fresh-Eve error even without anti-correlation, but cannot alone
+explain the $>1.5\times$ baseline overshoot.
+
+\paragraph{Net assessment.}
+The most parsimonious interpretation, consistent with all three mechanisms,
+is that the image patches experiment produced an \textbf{anti-correlated
+	cipher} driven by excessive adversarial pressure (\code{eve\_steps=4}),
+amplified by the non-uniform patch distribution. The 5/5 ``secure''
+classification is therefore misleading in the same way as the linear
+loss variant results: an informed adversary negating Eve's output would
+achieve $\approx$2.4 bit error, not 13.6. The appropriate corrected
+security metric --- analogous to the one applied to the linear variant ---
+would classify this run as a failure.
+
+Table~\ref{tab:image_patches_comparison} summarises the comparison of the
+image patches experiment against all other evaluated configurations.
+
+\begin{table}[H]
+	\centering
+	\caption{Image patches results compared to other experimental configurations.
+		$\dagger$~Anti-correlation suspected; negating Eve's output
+		gives $\approx 2.4$ bits error. Genuine security would require
+		post-training Eve error in $[6.8, \sim 10]$ bits.}
+	\label{tab:image_patches_comparison}
+	\renewcommand{\arraystretch}{1.4}
+	\begin{tabularx}{\linewidth}{@{} l c c c c @{}}
+		\toprule
+		\textbf{Configuration} & \textbf{Bob err.} &
+		\textbf{Eve (train)} & \textbf{Mean robust.} & \textbf{Secure} \\
+		\midrule
+		Random, quad, $e=2$ (baseline) &
+		$0.56$ & $7.62$ & $9.04$ & $5/5$ \\
+		Random, linear, $e=2$ &
+		$0.01$ & $14.56$ & $14.08$ & $5/5^\dagger$ \\
+		ASCII, quad, $e=2$ &
+		$0.04$ & $7.32$  & $6.20$ & $2/5$ \\
+		ASCII, linear, $e=2$ &
+		$0.47$ & $12.49$ & $15.01$ & $5/5^\dagger$ \\
+		\textbf{Image patches, quad, $e=4$} &
+		$\mathbf{2.19}$ & $\mathbf{3.17}$ & $\mathbf{13.60}$ & $\mathbf{5/5}^\dagger$ \\
+		\bottomrule
+	\end{tabularx}
+\end{table}
+
+\subsubsection*{What Worked and What Did Not}
+
+\textbf{What worked.}
+All five post-training retraining runs classified as nominally secure, confirming
+that the final cipher does not yield to a standard gradient-based neural attacker
+initialised from scratch. The extended training budget (100{,}000 steps) and
+large batch size (4{,}096) prevented the training from diverging entirely ---
+Bob's error, while elevated, remained below $N/2$, indicating at least partial
+reconstruction fidelity throughout.
+
+\textbf{What did not work.}
+Bob's reconstruction error of $2.19$ bits ($13.7\%$ of bits wrong) falls far
+short of the near-zero errors achieved in random and ASCII modes. At this error
+rate, a 4$\times$4 patch decoded by Bob would contain on average 2--3 incorrect
+pixels, producing visibly degraded image reconstructions when assembled into full
+images via the \code{ImageEncryptor} pipeline. The likely cause is the combination
+of a stronger adversary (\code{eve\_steps=4}) and the structured input distribution,
+which together prevent Alice and Bob from finding a stable, genuinely key-dependent
+encryption strategy within the training budget.
+
+\subsubsection*{Directions for Improvement}
+
+\begin{enumerate}[leftmargin=2em, itemsep=4pt]
+	\item \textbf{Reduce \code{eve\_steps} to 2 or 3.} The random mode
+	analysis (Section~\ref{subsec:step_ratio_results}) showed that
+	\code{eve\_steps=2} is the sweet spot. For image patches,
+	\code{eve\_steps=3} may provide sufficient adversarial pressure
+	without triggering the anti-correlation collapse.
+	\item \textbf{Soft binarisation or direct pixel training.} Binarising
+	patches at a fixed threshold discards greyscale information. Training
+	directly on continuous $[-1,+1]$ normalised pixel values
+	(rather than hard-thresholded bits) would give Alice and Bob a richer
+	signal and reduce the distributional bias identified in Mechanism~2.
+	\item \textbf{Loss scaling for structured inputs.} A structured patch
+	distribution may benefit from a reweighted loss that penalises Bob's
+	errors on informative (high-variance) patches more heavily than on
+	near-uniform patches, stabilising the reconstruction term
+	$\mathcal{L}_B$ against the adversarial penalty.
+	\item \textbf{Curriculum learning.} Begin training on random binary
+	messages (as in the baseline) and gradually introduce image patches
+	as training progresses. This warm-start strategy allows Alice and Bob
+	to establish a key-dependent cipher on easy data before encountering
+	the harder structured distribution.
+\end{enumerate}
+
+
+
+
+
+
+
 \newpage
 \section{Critical Discussion}
 \label{sec:discussion}
@@ -4169,7 +4505,7 @@ and security as joint objectives.
 
 \subsubsection*{Data-Agnostic Operation}
 
-As demonstrated in Section~10.6, the system operates without
+As demonstrated in Section~\ref{subsec:ascii_results}, the system operates without
 architectural modification on both random binary vectors and
 ASCII-encoded text. This data-agnostic property suggests that the learned
 encryption function captures a structural property of the key-dependent
@@ -4193,7 +4529,7 @@ of security that does not exist for most black-box systems.
 
 \subsubsection*{The Provable Security Gap}
 
-As established in Section~9.1, the system provides no formal security
+As established in Section~\ref{subsec:formal_security}, the system provides no formal security
 proof. This is not a limitation of the specific implementation but a
 fundamental limitation of the learning-based paradigm as currently
 understood: there is no known technique for proving that a learned
@@ -4250,7 +4586,7 @@ baseline system:
 \begin{enumerate}[leftmargin=2em, itemsep=6pt]
 
   \item \textbf{Loss function sensitivity}: the comparison of quadratic,
-        linear, and BCE variants (Section~10.3) confirms the original
+        linear, and BCE variants (Section~\ref{subsec:loss_variant_results}) confirms the original
         paper's assertion that the quadratic formulation is essential
         for stable convergence. The linear variant's failure to converge
         in approximately half of runs demonstrates that the specific
@@ -4258,7 +4594,7 @@ baseline system:
         --- is critical for the adversarial dynamics.
 
   \item \textbf{Step ratio sensitivity}: the paper's recommendation of
-        eve\_steps=2 is \emph{confirmed} by our experiments (Section~10.4).
+        eve\_steps=2 is \emph{confirmed} by our experiments (Section~\ref{subsec:step_ratio_results}).
         Under-powering Eve (1:1) catastrophically fails (0/5 secure, mean
         $4.60$ bits). Eve\_steps=3 also succeeds (5/5 secure) but with
         slightly lower mean robustness ($8.42$ bits vs.\ $9.04$ bits).
@@ -4267,15 +4603,19 @@ baseline system:
         and Bob from converging. The step ratio exhibits non-monotonic
         behaviour: both too few and too many Eve steps degrade performance.
 
-  \item \textbf{Attention's modest benefit}: the self-attention mechanism
-        improves success rate by approximately 5\% for $N=16$, but the
-        improvement is small relative to the added complexity. This suggests
-        that for small $N$, the convolutional architecture already has
-        sufficient expressivity, and attention's benefit materialises
-        primarily at larger scales.
+  \item \textbf{Attention's effect at $N=16$}: contrary to the theoretical
+        expectation, the self-attention mechanism \emph{degrades} performance at
+        $N=16$, reducing success rate from $5/5$ to $0/5$ secure runs and
+        increasing Bob's error by $2.8\times$ (from $0.56$ to $1.55$ bits).
+        At this small sequence length, the convolutional architecture already
+        has sufficient capacity; the attention layer adds parameters without
+        useful inductive bias, making optimisation harder. Benefits of attention
+        are nonetheless expected at larger $N$ where fixed convolutional
+        receptive fields become a genuine bottleneck for learning long-range
+        bit dependencies (Section~\ref{subsec:attention_results}).
 
   \item \textbf{Distribution invariance}: the successful operation of
-        the cipher in ASCII text mode (Section~10.6),
+        the cipher in ASCII text mode (Section~\ref{subsec:ascii_results}),
         without any architectural change, is a non-obvious result.
         It implies that the learned encryption strategy is not
         specialised to binary inputs and generalises to continuous
@@ -4287,6 +4627,21 @@ baseline system:
         (Eve error $\approx 7.8$ in both cases), but the post-training
         test is still necessary to rule out the possibility that the
         co-trained Eve was artificially weakened by Alice's early cipher.
+        The image-patch experiment makes this point compellingly: a
+        training-time Eve error of only $3.17$ bits coexists with a
+        post-training error of $\approx 13.6$ bits, a discrepancy
+        traceable to anti-correlation rather than genuine cipher strength.
+
+  \item \textbf{Distribution sensitivity}: structured image patches
+        (CIFAR-10) break the clean adversarial dynamic observed for
+        uniform random and ASCII inputs. The non-uniform marginal
+        distribution of binarised natural patches, combined with the
+        necessary increase in adversarial pressure (\code{eve\_steps=4}),
+        leads to an anti-correlated cipher instead of a key-dependent one.
+        This reveals that the system's robustness is partly a function of
+        training-distribution uniformity, and that real-world data requires
+        additional measures such as soft binarisation or curriculum learning
+        (Section~\ref{subsec:future}).
 
 \end{enumerate}
 
@@ -4322,12 +4677,14 @@ the \emph{existence} of the message, while cryptography hides its
 
 Subsequent work has applied differentiable techniques to
 \emph{break} classical ciphers rather than design new ones ---
-using neural networks as cryptanalysis tools. Gohr
+using neural networks as cryptanalysis tools. Gohr (2019)
 demonstrated that neural networks can learn to distinguish
-partially decrypted ciphertext from random, achieving
-state-of-the-art results on reduced-round Speck~\cite{abadi2016learning}.
+partially decrypted ciphertext from random data, achieving
+state-of-the-art results on reduced-round Speck, a lightweight
+block cipher~\cite{gohr2019improving}.
 This line of work underscores that the adversarial role of \eve{}
-in the present system is not merely academic.
+in the present system is not merely academic --- neural network
+attackers are now a genuine threat in classical cryptanalysis as well.
 
 % =============================================================================
 \subsection{Open Problems and Future Directions}
@@ -4354,7 +4711,7 @@ in the present system is not merely academic.
   \item \textbf{CBC/CTR mode analogues}: implementing a neural analogue
         of CBC or CTR mode --- where each block's encryption depends on
         the previous ciphertext block --- would eliminate the ECB-mode
-        weakness identified in Section~7.4 and bring the system closer
+        weakness identified in Section~\ref{subsec:mode_variable} and bring the system closer
         to the security properties of modern block cipher modes.
 
   \item \textbf{Public-key extension}: the current system requires a
@@ -4407,9 +4764,9 @@ The theoretical analysis established the following key results:
   \item \textbf{Architecture}: the mix~\&~transform design (FC + 4
         Conv1D layers) provides sufficient expressivity to represent
         XOR and more complex mixing functions, while remaining compact
-        enough (556 parameters per network) for adversarial training
-        to find meaningful solutions. The optional self-attention layer
-        extends this expressivity at the cost of modest additional
+        enough (567 parameters for Alice/Bob, 311 for Eve) for adversarial
+        training to find meaningful solutions. The optional self-attention
+        layer extends this expressivity at the cost of modest additional
         complexity.
 
   \item \textbf{Loss design}: the quadratic adversarial penalty is
@@ -4420,17 +4777,26 @@ The theoretical analysis established the following key results:
         of $N$.
 
   \item \textbf{Training dynamics}: successful convergence follows a
-        reproducible four-phase trajectory. The training step ratio exhibits non-monotonic behaviour:
-        eve\_steps=1 fails (0/5 secure), eve\_steps=2 achieves the best
-        robustness (5/5 secure, mean $9.04$ bits), eve\_steps=3 also
-        succeeds but with lower robustness, and eve\_steps=4 paradoxically
-        fails again (0/5 secure) due to excessive adversarial pressure. Non-monotonic
-        loss curves are expected and should not trigger early stopping.
+        reproducible four-phase trajectory. The training step ratio exhibits
+        non-monotonic behaviour: \code{eve\_steps=1} fails (0/5 secure),
+        \code{eve\_steps=2} achieves the best robustness (5/5 secure,
+        mean $9.04$ bits), \code{eve\_steps=3} also succeeds but with
+        slightly lower robustness (mean $8.42$ bits), and
+        \code{eve\_steps=4} paradoxically fails again (0/5 secure,
+        mean $6.06$ bits) due to excessive adversarial pressure preventing
+        convergence within the 20{,}000-step budget. Non-monotonic
+        loss curves are expected throughout and should not trigger
+        early stopping.
 
   \item \textbf{Message complexity}: the learned cipher generalises
         across data modes without architectural modification. Both random
         binary vectors and ASCII-encoded text are encrypted successfully
-        using the same network, loss, and training procedure.
+        using the same network, loss, and training procedure. Structured
+        image patches (CIFAR-10 grayscale) pose a harder challenge:
+        the non-uniform patch distribution and necessary increase in
+        adversarial pressure (\code{eve\_steps=4}) together produce an
+        anti-correlated cipher rather than genuine key-dependent encryption,
+        pointing to the need for distribution-aware training strategies.
 
   \item \textbf{Security}: the system provides empirical robustness
         against neural network adversaries, as confirmed by
@@ -4558,6 +4924,12 @@ R.~L.~Rivest, A.~Shamir, and L.~Adleman,
   cryptosystems,''
 \newblock \textit{Communications of the ACM},
   vol.~21, no.~2, pp.~120--126, 1978.
+
+\bibitem{gohr2019improving}
+A.~Gohr,
+\newblock ``Improving attacks on round-reduced Speck32/64 using deep learning,''
+\newblock in \textit{Advances in Cryptology --- CRYPTO 2019},
+  Lecture Notes in Computer Science, vol.~11693, pp.~150--179, Springer, 2019.
 
 \bibitem{kinzel2002neural}
 W.~Kinzel and I.~Kanter,

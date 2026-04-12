@@ -1,0 +1,50 @@
+ python main_enhanced.py \
+  --mode         image_patches \
+  --image_dir    ./training_images \
+  --patch_size   4 \
+  --msg_size     16 \
+  --key_size     16 \
+  --batch_size   4096 \
+  --steps        100000 \
+  --lr           0.0008 \
+  --eve_steps    4 \
+  --loss_fn      quadratic \
+  --seed         13 \
+  --save_dir     ./checkpoints/image_patches_4x4 \
+  --plot_dir     ./plots/image_patches_4x4 \
+  --eve_retrain  5 \
+  --eve_retrain_steps 5000 \
+  --log_every    500
+
+Step  96000  |  Bob:  2.24 [██                  ]  |  Eve:  3.34 [████                ]  |  Loss(AB): 0.6880
+Step  96500  |  Bob:  1.84 [██                  ]  |  Eve:  3.17 [███                 ]  |  Loss(AB): 0.6655
+Step  97000  |  Bob:  2.64 [███                 ]  |  Eve:  3.33 [████                ]  |  Loss(AB): 0.7053
+Step  97500  |  Bob:  2.29 [██                  ]  |  Eve:  3.68 [████                ]  |  Loss(AB): 0.6503
+Step  98000  |  Bob:  2.34 [██                  ]  |  Eve:  3.35 [████                ]  |  Loss(AB): 0.6979
+Step  98500  |  Bob:  2.72 [███                 ]  |  Eve:  3.69 [████                ]  |  Loss(AB): 0.7080
+Step  99000  |  Bob:  2.40 [███                 ]  |  Eve:  3.39 [████                ]  |  Loss(AB): 0.7375
+Step  99500  |  Bob:  2.19 [██                  ]  |  Eve:  3.17 [███                 ]  |  Loss(AB): 0.7483
+[Save] Models saved at step final → ./checkpoints/image_patches_4x4
+[Plot] Saved → ./plots/image_patches_4x4/training_loss_curve.png
+
+[Demo] image_patches mode: skipping text demo. Use test_generalization.py to evaluate on structured patterns.
+============================================================
+  POST-TRAINING EVE ROBUSTNESS  (5 runs × 5000 steps)
+============================================================
+  Run  1/5  |  Best Eve error: 13.551 bits  |  Baseline: 8.0  |  ✅ SECURE
+  Run  2/5  |  Best Eve error: 13.502 bits  |  Baseline: 8.0  |  ✅ SECURE
+  Run  3/5  |  Best Eve error: 13.678 bits  |  Baseline: 8.0  |  ✅ SECURE
+  Run  4/5  |  Best Eve error: 13.654 bits  |  Baseline: 8.0  |  ✅ SECURE
+  Run  5/5  |  Best Eve error: 13.604 bits  |  Baseline: 8.0  |  ✅ SECURE
+
+  Mean best Eve error: 13.598  |  Random baseline: 8.0
+  Secure runs: 5/5
+[Plot] Eve retrain chart → ./plots/image_patches_4x4/eve_retrain_results.png
+[Plot] Saved → ./plots/image_patches_4x4/final_summary_loss_curve.png
+============================================================
+  TRAINING COMPLETE
+  Plots  → ./plots/image_patches_4x4/
+  Models → ./checkpoints/image_patches_4x4/
+============================================================
+
+   

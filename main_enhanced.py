@@ -57,7 +57,7 @@ def get_args():
     p.add_argument("--attention",   action="store_true",
                    help="Add self-attention layer to the architecture")
     p.add_argument("--mode",        type=str,   default="random",
-                   choices=["random", "ascii", "selective"],
+                   choices=["random", "ascii", "selective", "image_patches"],
                    help="Message type  (default: random)")
     p.add_argument("--corr",         type=float, default=0.5,
                    help="Pairwise correlation between A,B,C,D in selective mode (default: 0.5)")
@@ -79,6 +79,15 @@ def get_args():
                    help="Random seed for reproducibility (default: 42)")
     p.add_argument("--log_every",   type=int,   default=100,
                    help="Log interval in steps  (default: 100)")
+
+    # Image patches mode
+    p.add_argument("--image_dir",   type=str,   default="./training_images",
+                   help="Directory containing training images for image_patches mode")
+    p.add_argument("--patch_size",  type=int,   default=16,
+                   help="Width/height of square patches in pixels (msg_size must equal patch_size*patch_size)")
+    p.add_argument("--image_mode",  type=str,   default="grayscale",
+                   choices=["grayscale", "rgb"],
+                   help="Color mode for image loading (default: grayscale)")
     return p.parse_args()
 
 
@@ -156,6 +165,160 @@ def decode_text(vec):
         code = sum(b << (7 - j) for j, b in enumerate(byte))
         chars.append(chr(code) if 32 <= code <= 126 else '?')
     return ''.join(chars)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# IMAGE  PATCH  MODE
+# ─────────────────────────────────────────────────────────────────────────────
+
+class ImagePatchLoader:
+    """
+    Loads and caches images from a directory for the image_patches training mode.
+
+    Converts images to grayscale (or optionally RGB), and serves random
+    patch crops as {-1, +1} binary tensors by thresholding pixel values > 127.
+
+    Usage:
+        loader = ImagePatchLoader(image_dir="./training_images", patch_size=16)
+        msg, key = loader.batch(batch_size=1024, key_size=16)
+    """
+
+    def __init__(self, image_dir: str, patch_size: int = 16,
+                 image_mode: str = "grayscale"):
+        """
+        Args:
+            image_dir  : Directory containing .jpg / .jpeg / .png images.
+            patch_size : Side length of the square patch in pixels.
+                         msg_size MUST equal patch_size * patch_size.
+            image_mode : "grayscale" (single channel) or "rgb" (3 channels).
+                         For "rgb", msg_size must equal patch_size * patch_size * 3.
+        """
+        from PIL import Image as PILImage  # lazy import — only needed for this mode
+
+        self.patch_size  = patch_size
+        self.image_mode  = image_mode
+        self.pil_mode    = "L" if image_mode == "grayscale" else "RGB"
+        self.channels    = 1 if image_mode == "grayscale" else 3
+        self.bits_per_patch = patch_size * patch_size * self.channels
+
+        if not os.path.isdir(image_dir):
+            raise FileNotFoundError(
+                f"[ImagePatchLoader] Image directory not found: '{image_dir}'\n"
+                f"  Create it and add .jpg / .png files, or pass --image_dir <path>."
+            )
+
+        # Collect supported image paths
+        extensions = {".jpg", ".jpeg", ".png"}
+        image_paths = [
+            os.path.join(image_dir, f)
+            for f in os.listdir(image_dir)
+            if os.path.splitext(f.lower())[1] in extensions
+        ]
+        if not image_paths:
+            raise ValueError(
+                f"[ImagePatchLoader] No .jpg / .png images found in '{image_dir}'."
+            )
+
+        # Load and cache all valid images (those large enough for at least one patch)
+        self.images = []
+        skipped = 0
+        for path in sorted(image_paths):
+            try:
+                img = PILImage.open(path).convert(self.pil_mode)
+                w, h = img.size
+                if w < patch_size or h < patch_size:
+                    skipped += 1
+                    continue
+                self.images.append(np.array(img, dtype=np.uint8))
+            except Exception as e:
+                print(f"[ImagePatchLoader] Warning: skipping '{path}': {e}")
+                skipped += 1
+
+        if not self.images:
+            raise ValueError(
+                f"[ImagePatchLoader] All images were skipped (too small or unreadable).\n"
+                f"  Images must be at least {patch_size}×{patch_size} pixels."
+            )
+
+        print(f"[ImagePatchLoader] Loaded {len(self.images)} images "
+              f"({skipped} skipped). Patch size: {patch_size}×{patch_size} "
+              f"= {self.bits_per_patch} bits.")
+
+    def batch(self, batch_size: int, key_size: int):
+        """
+        Return a batch of image patches as {-1, +1} binary messages plus
+        random {-1, +1} keys.
+
+        Args:
+            batch_size : Number of patches per batch.
+            key_size   : Key size in bits.
+
+        Returns:
+            msg : tf.Tensor  shape (batch_size, bits_per_patch)  float32 in {-1,+1}
+            key : tf.Tensor  shape (batch_size, key_size)         float32 in {-1,+1}
+        """
+        p   = self.patch_size
+        patches = np.empty((batch_size, self.bits_per_patch), dtype=np.float32)
+
+        n_images = len(self.images)
+        for i in range(batch_size):
+            img = self.images[np.random.randint(n_images)]
+            h, w = img.shape[:2]
+            # Random top-left corner
+            row = np.random.randint(0, h - p + 1)
+            col = np.random.randint(0, w - p + 1)
+            patch = img[row:row + p, col:col + p]      # (p, p) or (p, p, 3)
+            # Threshold: pixel > 127 → +1, else −1
+            bits = (patch.flatten() > 127).astype(np.float32) * 2.0 - 1.0
+            patches[i] = bits
+
+        msg = tf.constant(patches)
+        key = tf.cast(
+            2 * tf.random.uniform([batch_size, key_size], 0, 2, dtype=tf.int32) - 1,
+            tf.float32
+        )
+        return msg, key
+
+
+def image_patch_batch(batch_size: int, msg_size: int, key_size: int,
+                      image_dir: str, patch_size: int = 16,
+                      image_mode: str = "grayscale",
+                      _loader_cache: dict = {}):
+    """
+    Convenience wrapper around ImagePatchLoader that caches the loader
+    singleton so images are only loaded from disk once.
+
+    Args:
+        batch_size  : Number of patches per batch.
+        msg_size    : Must equal patch_size * patch_size (grayscale)
+                      or patch_size * patch_size * 3 (rgb).
+        key_size    : Key size in bits.
+        image_dir   : Directory with .jpg / .png files.
+        patch_size  : Patch width/height in pixels.
+        image_mode  : "grayscale" or "rgb".
+
+    Returns:
+        (msg, key) tensors of shape (batch_size, msg_size) and
+        (batch_size, key_size), values in {-1, +1}.
+    """
+    channels = 1 if image_mode == "grayscale" else 3
+    expected_bits = patch_size * patch_size * channels
+    if msg_size != expected_bits:
+        raise ValueError(
+            f"[image_patch_batch] msg_size={msg_size} does not match "
+            f"patch_size={patch_size} × patch_size × channels={channels} = {expected_bits}.\n"
+            f"  Set --msg_size {expected_bits} --patch_size {patch_size}."
+        )
+
+    cache_key = (image_dir, patch_size, image_mode)
+    if cache_key not in _loader_cache:
+        _loader_cache[cache_key] = ImagePatchLoader(
+            image_dir=image_dir,
+            patch_size=patch_size,
+            image_mode=image_mode,
+        )
+    loader = _loader_cache[cache_key]
+    return loader.batch(batch_size, key_size)
 
 
 
@@ -1156,6 +1319,25 @@ def main():
     elif args.mode == "ascii":
         def data_fn():
             return ascii_batch(args.batch_size, args.msg_size, args.key_size)
+    elif args.mode == "image_patches":
+        # Validate msg_size vs patch_size upfront so the error is clear
+        channels = 1 if args.image_mode == "grayscale" else 3
+        expected_bits = args.patch_size * args.patch_size * channels
+        if args.msg_size != expected_bits:
+            raise ValueError(
+                f"[image_patches] --msg_size {args.msg_size} does not match "
+                f"--patch_size {args.patch_size} × {args.patch_size} "
+                f"× channels({channels}) = {expected_bits}.\n"
+                f"  Run with --msg_size {expected_bits} --patch_size {args.patch_size}."
+            )
+        # Initialise loader once; data_fn captures it by closure
+        _patch_loader = ImagePatchLoader(
+            image_dir=args.image_dir,
+            patch_size=args.patch_size,
+            image_mode=args.image_mode,
+        )
+        def data_fn():
+            return _patch_loader.batch(args.batch_size, args.key_size)
 
     # ── Warm-up forward pass (build weights before load/save) ────────────────
     dummy_msg, dummy_key = data_fn()
@@ -1222,6 +1404,9 @@ def main():
     # ── Encryption demo (mode-aware) ─────────────────────────────────────────
     if args.mode in ("random", "ascii"):
         encryption_demo(alice, bob, eve, args)
+    elif args.mode == "image_patches":
+        print(f"\n[Demo] image_patches mode: skipping text demo. "
+              f"Use test_generalization.py to evaluate on structured patterns.")
 
 
     # ── Post-training Eve robustness ──────────────────────────────────────────
